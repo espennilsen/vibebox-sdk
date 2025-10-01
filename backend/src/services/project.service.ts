@@ -3,7 +3,8 @@
  * Handles project CRUD operations, ownership, and archiving
  * Tasks: T070, T040-T045
  */
-import { PrismaClient, Project } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import type { Project } from '@prisma/client';
 import { getPrismaClient } from '@/lib/db';
 import { NotFoundError, ValidationError, ConflictError, ForbiddenError } from '@/lib/errors';
 

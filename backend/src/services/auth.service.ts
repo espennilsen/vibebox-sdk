@@ -3,7 +3,8 @@
  * Handles user authentication, JWT token generation, and OAuth integration
  * Tasks: T067, T027-T030
  */
-import { PrismaClient, User } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import type { User } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import { getPrismaClient } from '@/lib/db';
 import { ConflictError, UnauthorizedError, ValidationError, NotFoundError } from '@/lib/errors';

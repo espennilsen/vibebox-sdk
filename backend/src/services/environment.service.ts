@@ -3,7 +3,9 @@
  * Orchestrates Docker containers, manages environment lifecycle and configuration
  * Tasks: T072, T046-T053
  */
-import { PrismaClient, Environment, EnvironmentStatus, Protocol } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { EnvironmentStatus, Protocol } from '@prisma/client';
+import type { Environment } from '@prisma/client';
 import { getPrismaClient } from '@/lib/db';
 import { DockerService } from './docker.service';
 import {

@@ -164,3 +164,22 @@ export class BadRequestError extends AppError {
     super(message);
   }
 }
+
+/**
+ * TooManyRequestsError - Rate limit exceeded (HTTP 429)
+ *
+ * Used when rate limit is exceeded
+ *
+ * @example
+ * ```typescript
+ * throw new TooManyRequestsError('Rate limit exceeded');
+ * ```
+ */
+export class TooManyRequestsError extends AppError {
+  readonly statusCode = 429;
+  readonly code = 'TOO_MANY_REQUESTS';
+
+  constructor(message: string = 'Too many requests') {
+    super(message);
+  }
+}

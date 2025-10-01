@@ -3,13 +3,9 @@
  * Handles tmux, shell, and VS Code Server session lifecycle
  * Tasks: T073, T054-T057
  */
-import {
-  PrismaClient,
-  Session,
-  SessionType,
-  SessionStatus,
-  EnvironmentStatus,
-} from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import type { Session } from '@prisma/client';
+import { SessionType, SessionStatus, EnvironmentStatus } from '@prisma/client';
 import { getPrismaClient } from '@/lib/db';
 import {
   NotFoundError,

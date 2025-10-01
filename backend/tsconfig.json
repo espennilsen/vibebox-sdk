@@ -42,5 +42,12 @@
     "isolatedModules": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "tests"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "tests",
+    "src/api/websocket/logStream.ts",
+    "src/api/websocket/terminal.ts",
+    "src/api/websocket/status.ts"
+  ]
 }

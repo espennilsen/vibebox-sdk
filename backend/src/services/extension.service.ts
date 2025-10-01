@@ -3,12 +3,9 @@
  * Handles VS Code extension search, installation, and management
  * Tasks: T074, T058-T061
  */
-import {
-  PrismaClient,
-  Extension,
-  EnvironmentExtension,
-  EnvironmentExtensionStatus,
-} from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import type { Extension, EnvironmentExtension } from '@prisma/client';
+import { EnvironmentExtensionStatus } from '@prisma/client';
 import { getPrismaClient } from '@/lib/db';
 import { NotFoundError, ValidationError, ConflictError, ForbiddenError } from '@/lib/errors';
 import { DockerService } from './docker.service';
@@ -70,7 +67,7 @@ export class ExtensionService {
    * @param dockerService - Docker service instance for container operations
    */
   constructor(
-    private prisma: PrismaClient = getPrismaClient(),
+    public prisma: PrismaClient = getPrismaClient(),
     private dockerService: DockerService = new DockerService()
   ) {}
 

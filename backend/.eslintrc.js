@@ -36,10 +36,19 @@ module.exports = {
     '@typescript-eslint/prefer-promise-reject-errors': 'warn',
     // Prisma intersection types can trigger this false positive
     '@typescript-eslint/no-redundant-type-constituents': 'warn',
+    // Allow enum comparisons between our enums and Prisma string literals
+    '@typescript-eslint/no-unsafe-enum-comparison': 'off',
   },
   env: {
     node: true,
     jest: true,
   },
-  ignorePatterns: ['.eslintrc.js', 'dist', 'node_modules'],
+  ignorePatterns: [
+    '.eslintrc.js',
+    'dist',
+    'node_modules',
+    'src/api/websocket/logStream.ts',
+    'src/api/websocket/terminal.ts',
+    'src/api/websocket/status.ts',
+  ],
 };

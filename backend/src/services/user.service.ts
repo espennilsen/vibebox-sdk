@@ -3,7 +3,8 @@
  * Handles user profile CRUD operations, SSH key management, and settings
  * Tasks: T068, T031-T032
  */
-import { PrismaClient, User } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import type { User } from '@prisma/client';
 import { getPrismaClient } from '@/lib/db';
 import { NotFoundError, ValidationError } from '@/lib/errors';
 

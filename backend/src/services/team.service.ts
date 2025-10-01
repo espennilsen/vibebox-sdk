@@ -3,7 +3,9 @@
  * Handles team CRUD operations, member management, and permissions
  * Tasks: T069, T033-T039
  */
-import { PrismaClient, Team, UserTeam, UserTeamRole, User } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import type { Team, UserTeam, User } from '@prisma/client';
+import { UserTeamRole } from '@prisma/client';
 import { getPrismaClient } from '@/lib/db';
 import { NotFoundError, ValidationError, ConflictError, ForbiddenError } from '@/lib/errors';
 

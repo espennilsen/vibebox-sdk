@@ -3,7 +3,9 @@
  * Handles log persistence, streaming, and retention policies
  * Tasks: T075, T062-T064
  */
-import { PrismaClient, LogEntry, LogStream } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import type { LogEntry } from '@prisma/client';
+import { LogStream } from '@prisma/client';
 import { getPrismaClient } from '@/lib/db';
 import { DockerService } from './docker.service';
 import { NotFoundError, ForbiddenError } from '@/lib/errors';
