@@ -23,6 +23,7 @@ model User {
   locale                 String    @default("en-US")
   sshPublicKey           String?   @map("ssh_public_key") @db.Text
   notificationSettings   Json      @default("{}") @map("notification_settings")
+  maxEnvironments        Int       @default(10) @map("max_environments")
   createdAt              DateTime  @default(now()) @map("created_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")
   lastLoginAt            DateTime? @map("last_login_at")
@@ -41,10 +42,12 @@ model Team {
   id          String   @id @default(uuid())
   name        String
   slug        String   @unique
-  description String?  @db.Text
-  avatarUrl   String?  @map("avatar_url")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  description     String?  @db.Text
+  avatarUrl       String?  @map("avatar_url")
+  maxEnvironments Int      @default(50) @map("max_environments")
+  maxMembers      Int      @default(20) @map("max_members")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   // Relationships
   userTeams UserTeam[]

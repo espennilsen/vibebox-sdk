@@ -10,6 +10,11 @@ import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { requireEnvironmentAccess, requireProjectAccess } from '../middleware/authorize';
 import { validate, patterns } from '../middleware/validation';
 import { rateLimits } from '../middleware/rateLimit';
+import {
+  checkUserQuota,
+  checkTeamQuota,
+  validateResourceLimits,
+} from '../middleware/quotas';
 
 /**
  * Register environment routes
@@ -82,6 +87,9 @@ export async function environmentRoutes(fastify: FastifyInstance): Promise<void>
           storageLimit: { type: 'number', min: 1024, max: 102400 },
         },
       }),
+      checkUserQuota,
+      checkTeamQuota,
+      validateResourceLimits,
     ],
     handler: createEnvironmentHandler,
   });
