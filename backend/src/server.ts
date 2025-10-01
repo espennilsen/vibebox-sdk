@@ -11,6 +11,8 @@ import { config } from './lib/config';
 import { logger } from './lib/logger';
 import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
 import { registerRoutes } from './api';
+import { securityHeaders, getAllowedOrigins } from './api/middleware/security';
+import { rateLimits } from './api/middleware/rateLimit';
 
 /**
  * Create and configure Fastify server instance
@@ -26,12 +28,29 @@ export async function createServer() {
     trustProxy: true,
   });
 
-  // Register CORS plugin
+  // Register CORS plugin with enhanced security
+  const allowedOrigins = getAllowedOrigins();
   await fastify.register(cors, {
-    origin: config.frontendUrl,
+    origin: allowedOrigins.length > 0
+      ? (origin, callback) => {
+          // Allow requests with no origin (same-origin, mobile apps, etc.)
+          if (!origin) {
+            callback(null, true);
+            return;
+          }
+
+          // Check if origin is in the allowed list
+          if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+          } else {
+            callback(new Error('Not allowed by CORS'));
+          }
+        }
+      : config.frontendUrl, // Fallback to simple origin in development
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+    exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'],
   });
 
   // Register JWT plugin
@@ -57,6 +76,20 @@ export async function createServer() {
       clientTracking: true,
     },
   });
+
+  // Apply security headers to all requests
+  if (config.security.enableSecurityHeaders) {
+    const securityConfig = config.security.cspDirective
+      ? { contentSecurityPolicy: config.security.cspDirective }
+      : undefined;
+
+    fastify.addHook('onRequest', securityHeaders(securityConfig));
+    logger.info('Security headers enabled');
+  }
+
+  // Apply global rate limiting per IP
+  fastify.addHook('onRequest', rateLimits.perIP);
+  logger.info('Global rate limiting enabled: 100 req/min per IP');
 
   // Register all routes
   await fastify.register(registerRoutes);

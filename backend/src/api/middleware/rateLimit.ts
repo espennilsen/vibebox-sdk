@@ -1,7 +1,7 @@
 /**
  * Rate Limiting Middleware
- * Configuration for rate limiting across different route groups
- * Task: Phase 3.5 - API Layer
+ * Configuration for rate limiting across different route groups with brute force protection
+ * Task: Phase 3.5 - API Layer + Security Hardening
  */
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { TooManyRequestsError } from '@/lib/errors';
@@ -135,18 +135,99 @@ export function createRateLimit(config: RateLimitConfig) {
 }
 
 /**
+ * Create IP-based rate limit (doesn't use user ID)
+ *
+ * @param config - Rate limit configuration
+ * @returns Rate limit middleware that only uses IP address
+ *
+ * @example
+ * ```typescript
+ * const ipLimit = createIPRateLimit({ max: 100, timeWindow: 60000 });
+ * ```
+ */
+export function createIPRateLimit(config: RateLimitConfig) {
+  return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const key = `ip:${request.ip || 'unknown'}`;
+    const allowed = store.check(key, config);
+
+    // Add rate limit headers
+    const remaining = store.getRemaining(key, config);
+    const resetAt = store.getResetAt(key);
+
+    reply.header('X-RateLimit-Limit', config.max);
+    reply.header('X-RateLimit-Remaining', remaining ?? config.max);
+    if (resetAt) {
+      reply.header('X-RateLimit-Reset', Math.ceil(resetAt / 1000));
+    }
+
+    if (!allowed) {
+      const retryAfter = resetAt ? Math.ceil((resetAt - Date.now()) / 1000) : 60;
+      reply.header('Retry-After', retryAfter);
+      throw new TooManyRequestsError('Rate limit exceeded. Please try again later.');
+    }
+  };
+}
+
+/**
+ * Composite rate limit middleware that enforces multiple limits
+ *
+ * @param limits - Array of rate limit configurations to enforce
+ * @returns Composite rate limit middleware
+ *
+ * @example
+ * ```typescript
+ * const dualLimit = createCompositeRateLimit([
+ *   { max: 100, timeWindow: 60000 },  // 100/min
+ *   { max: 1000, timeWindow: 3600000 } // 1000/hour
+ * ]);
+ * ```
+ */
+export function createCompositeRateLimit(limits: RateLimitConfig[]) {
+  const limitMiddlewares = limits.map((config) => createRateLimit(config));
+
+  return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    // Execute all rate limit checks
+    for (const middleware of limitMiddlewares) {
+      await middleware(request, reply);
+    }
+  };
+}
+
+/**
  * Pre-configured rate limits for different endpoint types
  */
 export const rateLimits = {
   /**
-   * Strict rate limit for authentication endpoints (5 requests per minute)
+   * Strict rate limit for login endpoint (5 requests per 15 minutes)
+   * Provides brute force protection
+   */
+  login: createIPRateLimit({ max: 5, timeWindow: 15 * 60 * 1000 }), // 15 minutes
+
+  /**
+   * Standard rate limit for authentication endpoints (5 requests per minute)
    */
   auth: createRateLimit({ max: 5, timeWindow: 60000 }),
 
   /**
-   * Standard rate limit for API endpoints (100 requests per minute)
+   * Per-IP rate limit (100 requests per minute)
+   * Applied globally to all endpoints
    */
-  api: createRateLimit({ max: 100, timeWindow: 60000 }),
+  perIP: createIPRateLimit({ max: 100, timeWindow: 60000 }),
+
+  /**
+   * Per-user rate limit (1000 requests per hour)
+   * Applied to authenticated endpoints
+   */
+  perUser: createRateLimit({ max: 1000, timeWindow: 3600000 }), // 1 hour
+
+  /**
+   * Combined per-IP and per-user limits for API endpoints
+   * 100 req/min per IP, 1000 req/hour per user
+   */
+  api: createCompositeRateLimit([
+    { max: 100, timeWindow: 60000 }, // Per IP/user per minute
+    { max: 1000, timeWindow: 3600000 }, // Per user per hour
+  ]),
 
   /**
    * Relaxed rate limit for read operations (200 requests per minute)

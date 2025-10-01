@@ -81,7 +81,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
   fastify.post('/login', {
     preHandler: [
-      rateLimits.auth,
+      rateLimits.login, // Brute force protection: 5 attempts per 15 min
       validate({
         body: {
           email: { type: 'string', required: true, pattern: patterns.email },

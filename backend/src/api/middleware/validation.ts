@@ -1,10 +1,11 @@
 /**
  * Validation Middleware
- * Request validation helpers and schemas
+ * Request validation helpers and schemas with input sanitization
  * Task: Phase 3.5 - API Layer
  */
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { ValidationError } from '@/lib/errors';
+import { sanitize } from './security';
 
 /**
  * Validation schema interface
@@ -33,6 +34,7 @@ interface FieldRule {
   pattern?: RegExp;
   enum?: string[];
   custom?: (value: unknown) => boolean | string;
+  sanitize?: boolean | 'string' | 'html' | 'email' | 'url' | 'filename';
 }
 
 /**
@@ -41,66 +43,91 @@ interface FieldRule {
  * @param value - Field value
  * @param rules - Validation rules
  * @param fieldName - Field name for error messages
+ * @returns Validated and potentially sanitized value
  * @throws {ValidationError} If validation fails
  */
-function validateField(value: unknown, rules: FieldRule, fieldName: string): void {
+function validateField(value: unknown, rules: FieldRule, fieldName: string): unknown {
+  let processedValue = value;
+
   // Required check
-  if (rules.required && (value === undefined || value === null || value === '')) {
+  if (rules.required && (processedValue === undefined || processedValue === null || processedValue === '')) {
     throw new ValidationError(`${fieldName} is required`);
   }
 
   // Skip further validation if value is undefined/null and not required
-  if (!rules.required && (value === undefined || value === null)) {
-    return;
+  if (!rules.required && (processedValue === undefined || processedValue === null)) {
+    return processedValue;
+  }
+
+  // Apply sanitization before validation
+  if (rules.sanitize && typeof processedValue === 'string') {
+    const sanitizeType = rules.sanitize === true ? 'string' : rules.sanitize;
+    switch (sanitizeType) {
+      case 'string':
+        processedValue = sanitize.string(processedValue);
+        break;
+      case 'html':
+        processedValue = sanitize.html(processedValue);
+        break;
+      case 'email':
+        processedValue = sanitize.email(processedValue);
+        break;
+      case 'url':
+        processedValue = sanitize.url(processedValue);
+        break;
+      case 'filename':
+        processedValue = sanitize.filename(processedValue);
+        break;
+    }
   }
 
   // Type check
   if (rules.type) {
-    const actualType = Array.isArray(value) ? 'array' : typeof value;
+    const actualType = Array.isArray(processedValue) ? 'array' : typeof processedValue;
     if (actualType !== rules.type) {
       throw new ValidationError(`${fieldName} must be a ${rules.type}`);
     }
   }
 
   // String validations
-  if (rules.type === 'string' && typeof value === 'string') {
-    if (rules.min !== undefined && value.length < rules.min) {
+  if (rules.type === 'string' && typeof processedValue === 'string') {
+    if (rules.min !== undefined && processedValue.length < rules.min) {
       throw new ValidationError(`${fieldName} must be at least ${rules.min} characters`);
     }
-    if (rules.max !== undefined && value.length > rules.max) {
+    if (rules.max !== undefined && processedValue.length > rules.max) {
       throw new ValidationError(`${fieldName} must be at most ${rules.max} characters`);
     }
-    if (rules.pattern && !rules.pattern.test(value)) {
+    if (rules.pattern && !rules.pattern.test(processedValue)) {
       throw new ValidationError(`${fieldName} format is invalid`);
     }
-    if (rules.enum && !rules.enum.includes(value)) {
+    if (rules.enum && !rules.enum.includes(processedValue)) {
       throw new ValidationError(`${fieldName} must be one of: ${rules.enum.join(', ')}`);
     }
   }
 
   // Number validations
-  if (rules.type === 'number' && typeof value === 'number') {
-    if (rules.min !== undefined && value < rules.min) {
+  if (rules.type === 'number' && typeof processedValue === 'number') {
+    if (rules.min !== undefined && processedValue < rules.min) {
       throw new ValidationError(`${fieldName} must be at least ${rules.min}`);
     }
-    if (rules.max !== undefined && value > rules.max) {
+    if (rules.max !== undefined && processedValue > rules.max) {
       throw new ValidationError(`${fieldName} must be at most ${rules.max}`);
     }
   }
 
   // Array validations
-  if (rules.type === 'array' && Array.isArray(value)) {
-    if (rules.min !== undefined && value.length < rules.min) {
+  if (rules.type === 'array' && Array.isArray(processedValue)) {
+    if (rules.min !== undefined && processedValue.length < rules.min) {
       throw new ValidationError(`${fieldName} must have at least ${rules.min} items`);
     }
-    if (rules.max !== undefined && value.length > rules.max) {
+    if (rules.max !== undefined && processedValue.length > rules.max) {
       throw new ValidationError(`${fieldName} must have at most ${rules.max} items`);
     }
   }
 
   // Custom validation
   if (rules.custom) {
-    const result = rules.custom(value);
+    const result = rules.custom(processedValue);
     if (result === false) {
       throw new ValidationError(`${fieldName} is invalid`);
     }
@@ -108,6 +135,8 @@ function validateField(value: unknown, rules: FieldRule, fieldName: string): voi
       throw new ValidationError(result);
     }
   }
+
+  return processedValue;
 }
 
 /**
@@ -131,27 +160,39 @@ function validateField(value: unknown, rules: FieldRule, fieldName: string): voi
  */
 export function validate(schema: ValidationSchema) {
   return async (request: FastifyRequest, _reply: FastifyReply): Promise<void> => {
-    // Validate body
-    if (schema.body) {
+    // Validate and sanitize body
+    if (schema.body && request.body) {
+      const body = request.body as Record<string, unknown>;
       for (const [fieldName, rules] of Object.entries(schema.body)) {
-        const value = (request.body as Record<string, unknown>)?.[fieldName];
-        validateField(value, rules, fieldName);
+        const value = body[fieldName];
+        const sanitized = validateField(value, rules, fieldName);
+        if (sanitized !== value && rules.sanitize) {
+          body[fieldName] = sanitized;
+        }
       }
     }
 
-    // Validate params
-    if (schema.params) {
+    // Validate and sanitize params
+    if (schema.params && request.params) {
+      const params = request.params as Record<string, unknown>;
       for (const [fieldName, rules] of Object.entries(schema.params)) {
-        const value = (request.params as Record<string, unknown>)?.[fieldName];
-        validateField(value, rules, fieldName);
+        const value = params[fieldName];
+        const sanitized = validateField(value, rules, fieldName);
+        if (sanitized !== value && rules.sanitize) {
+          params[fieldName] = sanitized;
+        }
       }
     }
 
-    // Validate query
-    if (schema.query) {
+    // Validate and sanitize query
+    if (schema.query && request.query) {
+      const query = request.query as Record<string, unknown>;
       for (const [fieldName, rules] of Object.entries(schema.query)) {
-        const value = (request.query as Record<string, unknown>)?.[fieldName];
-        validateField(value, rules, fieldName);
+        const value = query[fieldName];
+        const sanitized = validateField(value, rules, fieldName);
+        if (sanitized !== value && rules.sanitize) {
+          query[fieldName] = sanitized;
+        }
       }
     }
   };
