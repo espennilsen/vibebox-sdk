@@ -1,31 +1,32 @@
 # Docker Compose Override - For dev container compatibility
-# This file uses absolute host paths for volume mounts when running from dev container
+# Uses environment variable for workspace path to support different machines
+# Set WORKSPACE_ROOT in .env or shell (e.g., export WORKSPACE_ROOT=/Users/espen/Dev/vibebox)
 
 version: '3.8'
 
 services:
   backend:
     volumes:
-      - /Users/espen/Dev/vibebox/backend:/app
+      - ${WORKSPACE_ROOT:-.}/backend:/app
       - /app/node_modules
       - /var/run/docker.sock:/var/run/docker.sock
 
   frontend:
     volumes:
-      - /Users/espen/Dev/vibebox/frontend:/app
+      - ${WORKSPACE_ROOT:-.}/frontend:/app
       - /app/node_modules
 
   prometheus:
     volumes:
-      - /Users/espen/Dev/vibebox/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - /Users/espen/Dev/vibebox/monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ${WORKSPACE_ROOT:-.}/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ${WORKSPACE_ROOT:-.}/monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus_data:/prometheus
 
   grafana:
     volumes:
-      - /Users/espen/Dev/vibebox/monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
-      - /Users/espen/Dev/vibebox/monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
-      - /Users/espen/Dev/vibebox/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ${WORKSPACE_ROOT:-.}/monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ${WORKSPACE_ROOT:-.}/monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ${WORKSPACE_ROOT:-.}/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
 
 volumes:
