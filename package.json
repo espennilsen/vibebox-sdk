@@ -1,0 +1,31 @@
+{
+  "name": "vibebox",
+  "version": "1.0.0",
+  "description": "VibeBox - Dev Environment Management Tool (vibe coded with Claude Code and Spec Kit)",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend",
+    "shared/types"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces",
+    "docker:up": "./scripts/docker-up.sh",
+    "docker:down": "./scripts/docker-down.sh",
+    "docker:reset": "./scripts/docker-reset.sh"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "author": "VibeBox Team",
+  "license": "MIT"
+}

@@ -1,0 +1,1196 @@
+openapi: 3.0.3
+info:
+  title: VibeCode API
+  description: Dev Environment Management Tool API
+  version: 1.0.0
+  contact:
+    name: VibeCode Team
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local development
+  - url: https://api.vibecode.dev/v1
+    description: Production
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Auth
+    description: Authentication and authorization
+  - name: Users
+    description: User management and profiles
+  - name: Teams
+    description: Team and organization management
+  - name: Projects
+    description: Project CRUD operations
+  - name: Environments
+    description: Environment lifecycle management
+  - name: Sessions
+    description: Session management (tmux, VS Code Server)
+  - name: Extensions
+    description: VS Code extension management
+  - name: Logs
+    description: Log streaming and retrieval
+
+paths:
+  # Authentication Endpoints
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register new user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, displayName]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                displayName:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Email already exists
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login with email/password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+
+  /auth/oauth/{provider}:
+    get:
+      tags: [Auth]
+      summary: OAuth login redirect
+      security: []
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [github, google]
+      responses:
+        '302':
+          description: Redirect to OAuth provider
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      security: []
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid refresh token
+
+  # User Endpoints
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Get current user profile
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+    patch:
+      tags: [Users]
+      summary: Update current user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName:
+                  type: string
+                avatarUrl:
+                  type: string
+                  format: uri
+                timezone:
+                  type: string
+                locale:
+                  type: string
+                sshPublicKey:
+                  type: string
+                notificationSettings:
+                  type: object
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  # Team Endpoints
+  /teams:
+    get:
+      tags: [Teams]
+      summary: List user's teams
+      responses:
+        '200':
+          description: List of teams
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Team'
+
+    post:
+      tags: [Teams]
+      summary: Create new team
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                slug:
+                  type: string
+                  pattern: '^[a-z0-9-]{3,50}$'
+                description:
+                  type: string
+      responses:
+        '201':
+          description: Team created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+
+  /teams/{teamId}:
+    get:
+      tags: [Teams]
+      summary: Get team details
+      parameters:
+        - $ref: '#/components/parameters/TeamId'
+      responses:
+        '200':
+          description: Team details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+
+    patch:
+      tags: [Teams]
+      summary: Update team
+      parameters:
+        - $ref: '#/components/parameters/TeamId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Team updated
+
+    delete:
+      tags: [Teams]
+      summary: Delete team
+      parameters:
+        - $ref: '#/components/parameters/TeamId'
+      responses:
+        '204':
+          description: Team deleted
+
+  /teams/{teamId}/members:
+    get:
+      tags: [Teams]
+      summary: List team members
+      parameters:
+        - $ref: '#/components/parameters/TeamId'
+      responses:
+        '200':
+          description: Team members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TeamMember'
+
+    post:
+      tags: [Teams]
+      summary: Add team member
+      parameters:
+        - $ref: '#/components/parameters/TeamId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, role]
+              properties:
+                email:
+                  type: string
+                  format: email
+                role:
+                  type: string
+                  enum: [admin, developer, viewer]
+      responses:
+        '201':
+          description: Member added
+
+  # Project Endpoints
+  /projects:
+    get:
+      tags: [Projects]
+      summary: List projects
+      parameters:
+        - name: teamId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: archived
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
+
+    post:
+      tags: [Projects]
+      summary: Create project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug]
+              properties:
+                name:
+                  type: string
+                slug:
+                  type: string
+                  pattern: '^[a-z0-9-]{3,50}$'
+                description:
+                  type: string
+                teamId:
+                  type: string
+                  format: uuid
+                  description: Team owner (omit for personal project)
+      responses:
+        '201':
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+
+  /projects/{projectId}:
+    get:
+      tags: [Projects]
+      summary: Get project details
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: Project details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+
+    patch:
+      tags: [Projects]
+      summary: Update project
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                isArchived:
+                  type: boolean
+      responses:
+        '200':
+          description: Project updated
+
+    delete:
+      tags: [Projects]
+      summary: Delete project
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '204':
+          description: Project deleted
+
+  # Environment Endpoints
+  /environments:
+    get:
+      tags: [Environments]
+      summary: List environments
+      parameters:
+        - name: projectId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [stopped, starting, running, stopping, error]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: List of environments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Environment'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags: [Environments]
+      summary: Create environment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug, projectId, baseImage]
+              properties:
+                name:
+                  type: string
+                slug:
+                  type: string
+                  pattern: '^[a-z0-9-]{3,50}$'
+                description:
+                  type: string
+                projectId:
+                  type: string
+                  format: uuid
+                baseImage:
+                  type: string
+                  example: "node:20"
+                cpuLimit:
+                  type: number
+                  minimum: 0.1
+                  maximum: 8.0
+                  default: 2.0
+                memoryLimit:
+                  type: integer
+                  minimum: 512
+                  maximum: 16384
+                  default: 4096
+                storageLimit:
+                  type: integer
+                  minimum: 1024
+                  maximum: 102400
+                  default: 20480
+                ports:
+                  type: array
+                  items:
+                    type: object
+                    required: [containerPort]
+                    properties:
+                      containerPort:
+                        type: integer
+                      hostPort:
+                        type: integer
+                      protocol:
+                        type: string
+                        enum: [tcp, udp]
+                        default: tcp
+                environmentVariables:
+                  type: array
+                  items:
+                    type: object
+                    required: [key, value]
+                    properties:
+                      key:
+                        type: string
+                      value:
+                        type: string
+                      isEncrypted:
+                        type: boolean
+                extensions:
+                  type: array
+                  items:
+                    type: string
+                    description: Extension ID (e.g., "ms-python.python")
+      responses:
+        '201':
+          description: Environment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Environment'
+
+  /environments/{environmentId}:
+    get:
+      tags: [Environments]
+      summary: Get environment details
+      parameters:
+        - $ref: '#/components/parameters/EnvironmentId'
+      responses:
+        '200':
+          description: Environment details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Environment'
+
+    patch:
+      tags: [Environments]
+      summary: Update environment
+      parameters:
+        - $ref: '#/components/parameters/EnvironmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                cpuLimit:
+                  type: number
+                memoryLimit:
+                  type: integer
+      responses:
+        '200':
+          description: Environment updated
+
+    delete:
+      tags: [Environments]
+      summary: Delete environment
+      parameters:
+        - $ref: '#/components/parameters/EnvironmentId'
+      responses:
+        '204':
+          description: Environment deleted
+
+  /environments/{environmentId}/start:
+    post:
+      tags: [Environments]
+      summary: Start environment
+      parameters:
+        - $ref: '#/components/parameters/EnvironmentId'
+      responses:
+        '200':
+          description: Environment starting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Environment'
+        '409':
+          description: Environment already running
+
+  /environments/{environmentId}/stop:
+    post:
+      tags: [Environments]
+      summary: Stop environment
+      parameters:
+        - $ref: '#/components/parameters/EnvironmentId'
+      responses:
+        '200':
+          description: Environment stopping
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Environment'
+        '409':
+          description: Environment already stopped
+
+  /environments/{environmentId}/ports:
+    post:
+      tags: [Environments]
+      summary: Add port mapping
+      parameters:
+        - $ref: '#/components/parameters/EnvironmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [containerPort]
+              properties:
+                containerPort:
+                  type: integer
+                hostPort:
+                  type: integer
+                protocol:
+                  type: string
+                  enum: [tcp, udp]
+      responses:
+        '201':
+          description: Port added
+
+  /environments/{environmentId}/variables:
+    get:
+      tags: [Environments]
+      summary: List environment variables
+      parameters:
+        - $ref: '#/components/parameters/EnvironmentId'
+      responses:
+        '200':
+          description: Environment variables
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EnvironmentVariable'
+
+    post:
+      tags: [Environments]
+      summary: Add environment variable
+      parameters:
+        - $ref: '#/components/parameters/EnvironmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [key, value]
+              properties:
+                key:
+                  type: string
+                value:
+                  type: string
+                isEncrypted:
+                  type: boolean
+      responses:
+        '201':
+          description: Variable added
+
+  # Session Endpoints
+  /environments/{environmentId}/sessions:
+    get:
+      tags: [Sessions]
+      summary: List environment sessions
+      parameters:
+        - $ref: '#/components/parameters/EnvironmentId'
+      responses:
+        '200':
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Session'
+
+    post:
+      tags: [Sessions]
+      summary: Create new session
+      parameters:
+        - $ref: '#/components/parameters/EnvironmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionType, sessionName]
+              properties:
+                sessionType:
+                  type: string
+                  enum: [vscode_server, tmux, shell]
+                sessionName:
+                  type: string
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+
+  /sessions/{sessionId}:
+    delete:
+      tags: [Sessions]
+      summary: Terminate session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Session terminated
+
+  # Extension Endpoints
+  /extensions:
+    get:
+      tags: [Extensions]
+      summary: Search extensions
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+        - name: publisher
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of extensions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Extension'
+
+  /environments/{environmentId}/extensions:
+    get:
+      tags: [Extensions]
+      summary: List installed extensions
+      parameters:
+        - $ref: '#/components/parameters/EnvironmentId'
+      responses:
+        '200':
+          description: Installed extensions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EnvironmentExtension'
+
+    post:
+      tags: [Extensions]
+      summary: Install extension
+      parameters:
+        - $ref: '#/components/parameters/EnvironmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [extensionId]
+              properties:
+                extensionId:
+                  type: string
+                  description: Extension marketplace ID
+      responses:
+        '202':
+          description: Installation started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvironmentExtension'
+
+  /environments/{environmentId}/extensions/{extensionId}:
+    delete:
+      tags: [Extensions]
+      summary: Uninstall extension
+      parameters:
+        - $ref: '#/components/parameters/EnvironmentId'
+        - name: extensionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '202':
+          description: Uninstallation started
+
+  # Log Endpoints
+  /environments/{environmentId}/logs:
+    get:
+      tags: [Logs]
+      summary: Get environment logs
+      parameters:
+        - $ref: '#/components/parameters/EnvironmentId'
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: until
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: tail
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: stream
+          in: query
+          schema:
+            type: string
+            enum: [stdout, stderr, all]
+            default: all
+      responses:
+        '200':
+          description: Log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LogEntry'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    TeamId:
+      name: teamId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    EnvironmentId:
+      name: environmentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    AuthResponse:
+      type: object
+      required: [accessToken, refreshToken, user]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      required: [id, email, displayName, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+          format: uri
+        timezone:
+          type: string
+        locale:
+          type: string
+        sshPublicKey:
+          type: string
+        notificationSettings:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+        lastLoginAt:
+          type: string
+          format: date-time
+
+    Team:
+      type: object
+      required: [id, name, slug, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        avatarUrl:
+          type: string
+          format: uri
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    TeamMember:
+      type: object
+      required: [user, role, joinedAt]
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        role:
+          type: string
+          enum: [admin, developer, viewer]
+        joinedAt:
+          type: string
+          format: date-time
+
+    Project:
+      type: object
+      required: [id, name, slug, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        ownerId:
+          type: string
+          format: uuid
+        teamId:
+          type: string
+          format: uuid
+        isArchived:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Environment:
+      type: object
+      required: [id, name, slug, projectId, baseImage, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        projectId:
+          type: string
+          format: uuid
+        creatorId:
+          type: string
+          format: uuid
+        baseImage:
+          type: string
+        containerId:
+          type: string
+        status:
+          type: string
+          enum: [stopped, starting, running, stopping, error]
+        errorMessage:
+          type: string
+        cpuLimit:
+          type: number
+        memoryLimit:
+          type: integer
+        storageLimit:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+        stoppedAt:
+          type: string
+          format: date-time
+
+    Session:
+      type: object
+      required: [id, environmentId, sessionType, sessionName, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        environmentId:
+          type: string
+          format: uuid
+        sessionType:
+          type: string
+          enum: [vscode_server, tmux, shell]
+        sessionName:
+          type: string
+        status:
+          type: string
+          enum: [starting, active, idle, terminated]
+        connectionUrl:
+          type: string
+          format: uri
+        pid:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        lastActivityAt:
+          type: string
+          format: date-time
+        idleTimeoutMinutes:
+          type: integer
+        terminatedAt:
+          type: string
+          format: date-time
+
+    Extension:
+      type: object
+      required: [id, extensionId, name, version, publisher]
+      properties:
+        id:
+          type: string
+          format: uuid
+        extensionId:
+          type: string
+        name:
+          type: string
+        version:
+          type: string
+        description:
+          type: string
+        publisher:
+          type: string
+        iconUrl:
+          type: string
+          format: uri
+        isCustom:
+          type: boolean
+        downloadUrl:
+          type: string
+          format: uri
+
+    EnvironmentExtension:
+      type: object
+      required: [id, environmentId, extension, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        environmentId:
+          type: string
+          format: uuid
+        extension:
+          $ref: '#/components/schemas/Extension'
+        status:
+          type: string
+          enum: [pending, installing, installed, failed, uninstalling]
+        errorMessage:
+          type: string
+        installedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    EnvironmentVariable:
+      type: object
+      required: [id, key, value, isEncrypted]
+      properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+        value:
+          type: string
+        isEncrypted:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    LogEntry:
+      type: object
+      required: [id, timestamp, stream, message]
+      properties:
+        id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+        stream:
+          type: string
+          enum: [stdout, stderr]
+        message:
+          type: string
+
+    Pagination:
+      type: object
+      required: [page, limit, total, totalPages]
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

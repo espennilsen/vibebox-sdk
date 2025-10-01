@@ -1,0 +1,294 @@
+// Prisma Schema - Task T004
+// Database schema for VibeBox based on data-model.md
+// Generated from specs/001-develop-vibecode-a/data-model.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// User entity - Represents a developer using VibeBox
+model User {
+  id                     String    @id @default(uuid())
+  email                  String    @unique
+  passwordHash           String?   @map("password_hash")
+  displayName            String    @map("display_name")
+  avatarUrl              String?   @map("avatar_url")
+  timezone               String    @default("UTC")
+  locale                 String    @default("en-US")
+  sshPublicKey           String?   @map("ssh_public_key") @db.Text
+  notificationSettings   Json      @default("{}") @map("notification_settings")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+  lastLoginAt            DateTime? @map("last_login_at")
+
+  // Relationships
+  ownedProjects   Project[]       @relation("ProjectOwner")
+  userTeams       UserTeam[]
+  environments    Environment[]   @relation("EnvironmentCreator")
+
+  @@index([createdAt])
+  @@map("users")
+}
+
+/// Team entity - Represents an organization or team
+model Team {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+  avatarUrl   String?  @map("avatar_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  userTeams UserTeam[]
+  projects  Project[]  @relation("TeamOwner")
+
+  @@index([name])
+  @@map("teams")
+}
+
+/// UserTeam junction - User-Team many-to-many with roles
+model UserTeam {
+  id       String               @id @default(uuid())
+  userId   String               @map("user_id")
+  teamId   String               @map("team_id")
+  role     UserTeamRole
+  joinedAt DateTime             @default(now()) @map("joined_at")
+
+  // Relationships
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+  @@index([teamId])
+  @@map("user_teams")
+}
+
+enum UserTeamRole {
+  admin
+  developer
+  viewer
+}
+
+/// Project entity - Organizational unit grouping environments
+model Project {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String
+  description String?  @db.Text
+  ownerId     String?  @map("owner_id")
+  teamId      String?  @map("team_id")
+  isArchived  Boolean  @default(false) @map("is_archived")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  owner        User?         @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  team         Team?         @relation("TeamOwner", fields: [teamId], references: [id], onDelete: Cascade)
+  environments Environment[]
+
+  @@unique([slug, ownerId])
+  @@unique([slug, teamId])
+  @@index([ownerId])
+  @@index([teamId])
+  @@map("projects")
+}
+
+/// Environment entity - Docker-based development environment
+model Environment {
+  id            String            @id @default(uuid())
+  name          String
+  slug          String
+  description   String?           @db.Text
+  projectId     String            @map("project_id")
+  creatorId     String            @map("creator_id")
+  baseImage     String            @map("base_image")
+  containerId   String?           @map("container_id")
+  status        EnvironmentStatus
+  errorMessage  String?           @map("error_message") @db.Text
+  cpuLimit      Decimal           @default(2.0) @map("cpu_limit") @db.Decimal(4, 2)
+  memoryLimit   Int               @default(4096) @map("memory_limit")
+  storageLimit  Int               @default(20480) @map("storage_limit")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  startedAt     DateTime?         @map("started_at")
+  stoppedAt     DateTime?         @map("stopped_at")
+
+  // Relationships
+  project               Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator               User                    @relation("EnvironmentCreator", fields: [creatorId], references: [id])
+  sessions              Session[]
+  environmentExtensions EnvironmentExtension[]
+  ports                 EnvironmentPort[]
+  variables             EnvironmentVariable[]
+  logs                  LogEntry[]
+
+  @@unique([projectId, slug])
+  @@index([projectId])
+  @@index([creatorId])
+  @@index([status])
+  @@index([containerId])
+  @@map("environments")
+}
+
+enum EnvironmentStatus {
+  stopped
+  starting
+  running
+  stopping
+  error
+}
+
+/// EnvironmentPort entity - Port mappings for network access
+model EnvironmentPort {
+  id            String   @id @default(uuid())
+  environmentId String   @map("environment_id")
+  containerPort Int      @map("container_port")
+  hostPort      Int?     @map("host_port")
+  protocol      Protocol @default(tcp)
+  description   String?
+
+  // Relationships
+  environment Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+
+  @@unique([environmentId, containerPort])
+  @@index([environmentId])
+  @@index([hostPort])
+  @@map("environment_ports")
+}
+
+enum Protocol {
+  tcp
+  udp
+}
+
+/// EnvironmentVariable entity - Environment variables for container runtime
+model EnvironmentVariable {
+  id            String   @id @default(uuid())
+  environmentId String   @map("environment_id")
+  key           String
+  value         String   @db.Text
+  isEncrypted   Boolean  @default(false) @map("is_encrypted")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  environment Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+
+  @@unique([environmentId, key])
+  @@map("environment_variables")
+}
+
+/// Session entity - Active processes inside an environment
+model Session {
+  id                 String        @id @default(uuid())
+  environmentId      String        @map("environment_id")
+  sessionType        SessionType   @map("session_type")
+  sessionName        String        @map("session_name")
+  status             SessionStatus
+  connectionUrl      String?       @map("connection_url")
+  pid                Int?
+  createdAt          DateTime      @default(now()) @map("created_at")
+  lastActivityAt     DateTime      @default(now()) @map("last_activity_at")
+  idleTimeoutMinutes Int           @default(30) @map("idle_timeout_minutes")
+  terminatedAt       DateTime?     @map("terminated_at")
+
+  // Relationships
+  environment Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+
+  @@unique([environmentId, sessionType, sessionName])
+  @@index([environmentId])
+  @@index([status])
+  @@index([lastActivityAt])
+  @@map("sessions")
+}
+
+enum SessionType {
+  vscode_server
+  tmux
+  shell
+}
+
+enum SessionStatus {
+  starting
+  active
+  idle
+  terminated
+}
+
+/// Extension entity - VS Code extension metadata (catalog)
+model Extension {
+  id          String    @id @default(uuid())
+  extensionId String    @unique @map("extension_id")
+  name        String
+  version     String
+  description String?   @db.Text
+  publisher   String
+  iconUrl     String?   @map("icon_url")
+  isCustom    Boolean   @default(false) @map("is_custom")
+  downloadUrl String?   @map("download_url")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relationships
+  environmentExtensions EnvironmentExtension[]
+
+  @@index([publisher])
+  @@index([isCustom])
+  @@map("extensions")
+}
+
+/// EnvironmentExtension junction - Environment-Extension with installation status
+model EnvironmentExtension {
+  id            String                     @id @default(uuid())
+  environmentId String                     @map("environment_id")
+  extensionId   String                     @map("extension_id")
+  status        EnvironmentExtensionStatus
+  errorMessage  String?                    @map("error_message") @db.Text
+  installedAt   DateTime?                  @map("installed_at")
+  createdAt     DateTime                   @default(now()) @map("created_at")
+
+  // Relationships
+  environment Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  extension   Extension   @relation(fields: [extensionId], references: [id], onDelete: Cascade)
+
+  @@unique([environmentId, extensionId])
+  @@index([status])
+  @@map("environment_extensions")
+}
+
+enum EnvironmentExtensionStatus {
+  pending
+  installing
+  installed
+  failed
+  uninstalling
+}
+
+/// LogEntry entity - Persistent log storage for environments
+model LogEntry {
+  id            String    @id @default(uuid())
+  environmentId String    @map("environment_id")
+  timestamp     DateTime
+  stream        LogStream
+  message       String    @db.Text
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  // Relationships
+  environment Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+
+  @@index([environmentId, timestamp(sort: Desc)])
+  @@index([createdAt])
+  @@map("log_entries")
+}
+
+enum LogStream {
+  stdout
+  stderr
+}

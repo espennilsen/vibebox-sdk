@@ -1,0 +1,80 @@
+# Docker Compose Configuration - Task T005
+# Local development environment for VibeBox
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database - Local development database
+  postgres:
+    image: postgres:16-alpine
+    container_name: vibebox-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vibebox_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-vibebox}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vibebox}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vibebox-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: vibebox-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://vibebox:changeme@postgres:5432/vibebox_dev?schema=public}
+      DATABASE_URL_TEST: ${DATABASE_URL_TEST:-postgresql://vibebox:changeme@postgres:5432/vibebox_test?schema=public}
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${BACKEND_PORT:-3000}
+      HOST: 0.0.0.0
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-change-in-production}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - /var/run/docker.sock:/var/run/docker.sock  # Docker socket for dockerode
+    command: npm run dev
+    networks:
+      - vibebox-network
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: vibebox-frontend
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: http://localhost:3000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev
+    networks:
+      - vibebox-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  vibebox-network:
+    driver: bridge
