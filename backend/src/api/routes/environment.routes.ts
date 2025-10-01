@@ -341,63 +341,73 @@ export async function environmentRoutes(fastify: FastifyInstance): Promise<void>
     handler: restartEnvironmentHandler,
   });
 
-  // TODO: Implement getEnvironmentStatus in EnvironmentService
-  /*
-  fastify.get(
-    '/:envId/status',
-    {
-      preHandler: [
-        authenticate,
-        rateLimits.read,
-        validate({
-          params: {
-            envId: { type: 'string', required: true, pattern: patterns.uuid },
-          },
-        }),
-        requireEnvironmentAccess,
-      ],
-    },
-    async (
-      request: FastifyRequest<{
-        Params: { envId: string };
-      }>,
-      reply: FastifyReply
-    ) => {
-      const { envId } = request.params;
-      const status = await environmentService.getEnvironmentStatus(envId);
-      return reply.status(200).send(status);
-    }
-  );
-  */
+  /**
+   * GET /api/v1/environments/:envId/status
+   * Get environment status
+   *
+   * @param envId - Environment ID
+   * @returns Environment status including container state and uptime
+   * @throws {NotFoundError} If environment not found
+   */
+  const getEnvironmentStatusHandler: RouteHandlerMethod<
+    any,
+    any,
+    any,
+    { Params: { envId: string } }
+  > = async (request, reply) => {
+    const { envId } = request.params;
+    const status = await environmentService.getEnvironmentStatus(envId);
+    return reply.status(200).send(status);
+  };
 
-  // TODO: Implement getEnvironmentStats in EnvironmentService
-  /*
-  fastify.get(
-    '/:envId/stats',
-    {
-      preHandler: [
-        authenticate,
-        rateLimits.read,
-        validate({
-          params: {
-            envId: { type: 'string', required: true, pattern: patterns.uuid },
-          },
-        }),
-        requireEnvironmentAccess,
-      ],
-    },
-    async (
-      request: FastifyRequest<{
-        Params: { envId: string };
-      }>,
-      reply: FastifyReply
-    ) => {
-      const { envId } = request.params;
-      const stats = await environmentService.getEnvironmentStats(envId);
-      return reply.status(200).send(stats);
-    }
-  );
-  */
+  fastify.get('/:envId/status', {
+    preHandler: [
+      authenticate,
+      rateLimits.read,
+      validate({
+        params: {
+          envId: { type: 'string', required: true, pattern: patterns.uuid },
+        },
+      }),
+      requireEnvironmentAccess,
+    ],
+    handler: getEnvironmentStatusHandler,
+  });
+
+  /**
+   * GET /api/v1/environments/:envId/stats
+   * Get environment statistics
+   *
+   * @param envId - Environment ID
+   * @returns Environment resource usage statistics
+   * @throws {NotFoundError} If environment not found
+   * @throws {ForbiddenError} If user lacks access
+   */
+  const getEnvironmentStatsHandler: RouteHandlerMethod<
+    any,
+    any,
+    any,
+    { Params: { envId: string } }
+  > = async (request, reply) => {
+    const { envId } = request.params;
+    const { userId } = (request as AuthenticatedRequest).user;
+    const stats = await environmentService.getEnvironmentStats(envId, userId);
+    return reply.status(200).send(stats);
+  };
+
+  fastify.get('/:envId/stats', {
+    preHandler: [
+      authenticate,
+      rateLimits.read,
+      validate({
+        params: {
+          envId: { type: 'string', required: true, pattern: patterns.uuid },
+        },
+      }),
+      requireEnvironmentAccess,
+    ],
+    handler: getEnvironmentStatsHandler,
+  });
 
   /**
    * GET /api/v1/projects/:projectId/environments
@@ -511,11 +521,13 @@ export async function environmentRoutes(fastify: FastifyInstance): Promise<void>
     any,
     any,
     { Params: { envId: string; port: string } }
-  > = async (_request, _reply) => {
-    // TODO: Implement removePort in EnvironmentService
-    throw new Error('removePort not yet implemented');
-    // await environmentService.removePort(envId, containerPort);
-    // return _reply.status(200).send({ message: 'Port mapping removed successfully' });
+  > = async (request, reply) => {
+    const { envId, port } = request.params;
+    const { userId } = (request as AuthenticatedRequest).user;
+    const containerPort = parseInt(port, 10);
+
+    await environmentService.removePort(envId, containerPort, userId);
+    return reply.status(200).send({ message: 'Port mapping removed successfully' });
   };
 
   fastify.delete('/:envId/ports/:port', {
@@ -604,11 +616,12 @@ export async function environmentRoutes(fastify: FastifyInstance): Promise<void>
     any,
     any,
     { Params: { envId: string; key: string } }
-  > = async (_request, _reply) => {
-    // TODO: Implement removeEnvironmentVariable in EnvironmentService
-    throw new Error('removeEnvironmentVariable not yet implemented');
-    // await environmentService.removeEnvironmentVariable(envId, key);
-    // return _reply.status(200).send({ message: 'Environment variable removed successfully' });
+  > = async (request, reply) => {
+    const { envId, key } = request.params;
+    const { userId } = (request as AuthenticatedRequest).user;
+
+    await environmentService.removeEnvironmentVariable(envId, key, userId);
+    return reply.status(200).send({ message: 'Environment variable removed successfully' });
   };
 
   fastify.delete('/:envId/variables/:key', {

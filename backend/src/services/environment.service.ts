@@ -825,6 +825,245 @@ export class EnvironmentService {
   }
 
   /**
+   * Get environment status with container details
+   *
+   * Retrieves current status of environment including Docker container state,
+   * uptime, and any error messages.
+   *
+   * @param environmentId - Environment ID
+   * @returns Environment status information
+   * @throws {NotFoundError} If environment not found
+   *
+   * @example
+   * ```typescript
+   * const status = await environmentService.getEnvironmentStatus('env-123');
+   * console.log(status.status); // 'running' | 'stopped' | 'error'
+   * console.log(status.uptime); // 3600 (seconds)
+   * ```
+   */
+  async getEnvironmentStatus(environmentId: string): Promise<{
+    status: EnvironmentStatus;
+    containerStatus?: string;
+    uptime?: number;
+    lastError?: string | null;
+  }> {
+    const environment = await this.prisma.environment.findUnique({
+      where: { id: environmentId },
+    });
+
+    if (!environment) {
+      throw new NotFoundError('Environment not found');
+    }
+
+    let containerStatus: string | undefined;
+    let uptime: number | undefined;
+
+    // Get container status if container exists
+    if (environment.containerId) {
+      try {
+        const containerInfo = await this.dockerService.getContainerInfo(environment.containerId);
+        containerStatus = containerInfo.status;
+
+        // Calculate uptime if container is running
+        if (containerInfo.status === 'running' && environment.startedAt) {
+          uptime = Math.floor((Date.now() - environment.startedAt.getTime()) / 1000);
+        }
+      } catch {
+        // Container might not exist anymore, status will reflect database state only
+        containerStatus = 'not-found';
+      }
+    }
+
+    return {
+      status: environment.status,
+      containerStatus,
+      uptime,
+      lastError: environment.errorMessage,
+    };
+  }
+
+  /**
+   * Get environment statistics
+   *
+   * Retrieves resource usage statistics for running environment including
+   * CPU, memory, network, and disk usage.
+   *
+   * @param environmentId - Environment ID
+   * @param userId - User ID performing action
+   * @returns Environment statistics
+   * @throws {NotFoundError} If environment not found
+   * @throws {ForbiddenError} If user lacks access
+   * @throws {BadRequestError} If environment is not running
+   *
+   * @example
+   * ```typescript
+   * const stats = await environmentService.getEnvironmentStats('env-123', 'user-456');
+   * console.log(`CPU: ${stats.cpuUsage}%`);
+   * console.log(`Memory: ${stats.memoryUsage} MB`);
+   * ```
+   */
+  async getEnvironmentStats(
+    environmentId: string,
+    userId: string
+  ): Promise<{
+    cpuUsage: number;
+    memoryUsage: number;
+    memoryLimit: number;
+    networkRx: number;
+    networkTx: number;
+    diskUsage?: number;
+  }> {
+    const environment = await this.prisma.environment.findUnique({
+      where: { id: environmentId },
+      include: {
+        project: {
+          include: {
+            owner: true,
+            team: { include: { userTeams: true } },
+          },
+        },
+      },
+    });
+
+    if (!environment) {
+      throw new NotFoundError('Environment not found');
+    }
+
+    await this.checkEnvironmentAccess(environment.project, userId);
+
+    if (!environment.containerId) {
+      throw new BadRequestError('Environment has no associated container');
+    }
+
+    if (environment.status !== EnvironmentStatus.running) {
+      throw new BadRequestError('Environment is not running');
+    }
+
+    // Get container stats from Docker
+    const containerStats = await this.dockerService.getContainerStats(environment.containerId);
+
+    return {
+      cpuUsage: containerStats.cpuUsage,
+      memoryUsage: containerStats.memoryUsage,
+      memoryLimit: environment.memoryLimit,
+      networkRx: containerStats.networkRx,
+      networkTx: containerStats.networkTx,
+    };
+  }
+
+  /**
+   * Remove port mapping from environment
+   *
+   * Removes a port mapping from environment. If environment is running,
+   * requires container restart to apply changes.
+   *
+   * @param environmentId - Environment ID
+   * @param containerPort - Container port to remove
+   * @param userId - User ID performing action
+   * @throws {NotFoundError} If environment or port not found
+   * @throws {ForbiddenError} If user lacks access
+   *
+   * @example
+   * ```typescript
+   * await environmentService.removePort('env-123', 8080, 'user-456');
+   * // Port 8080 mapping removed
+   * ```
+   */
+  async removePort(environmentId: string, containerPort: number, userId: string): Promise<void> {
+    const environment = await this.prisma.environment.findUnique({
+      where: { id: environmentId },
+      include: {
+        project: {
+          include: {
+            owner: true,
+            team: { include: { userTeams: true } },
+          },
+        },
+        ports: true,
+      },
+    });
+
+    if (!environment) {
+      throw new NotFoundError('Environment not found');
+    }
+
+    await this.checkEnvironmentAccess(environment.project, userId);
+
+    // Check if port exists
+    const portExists = environment.ports.some((p) => p.containerPort === containerPort);
+    if (!portExists) {
+      throw new NotFoundError('Port mapping not found');
+    }
+
+    // Delete port mapping
+    await this.prisma.environmentPort.deleteMany({
+      where: {
+        environmentId,
+        containerPort,
+      },
+    });
+  }
+
+  /**
+   * Remove environment variable from environment
+   *
+   * Removes an environment variable. If environment is running,
+   * requires container restart to apply changes.
+   *
+   * @param environmentId - Environment ID
+   * @param key - Variable key to remove
+   * @param userId - User ID performing action
+   * @throws {NotFoundError} If environment or variable not found
+   * @throws {ForbiddenError} If user lacks access
+   *
+   * @example
+   * ```typescript
+   * await environmentService.removeEnvironmentVariable('env-123', 'API_KEY', 'user-456');
+   * // API_KEY variable removed
+   * ```
+   */
+  async removeEnvironmentVariable(
+    environmentId: string,
+    key: string,
+    userId: string
+  ): Promise<void> {
+    const environment = await this.prisma.environment.findUnique({
+      where: { id: environmentId },
+      include: {
+        project: {
+          include: {
+            owner: true,
+            team: { include: { userTeams: true } },
+          },
+        },
+        variables: true,
+      },
+    });
+
+    if (!environment) {
+      throw new NotFoundError('Environment not found');
+    }
+
+    await this.checkEnvironmentAccess(environment.project, userId);
+
+    // Check if variable exists
+    const variableExists = environment.variables.some((v) => v.key === key);
+    if (!variableExists) {
+      throw new NotFoundError('Environment variable not found');
+    }
+
+    // Delete variable
+    await this.prisma.environmentVariable.delete({
+      where: {
+        environmentId_key: {
+          environmentId,
+          key,
+        },
+      },
+    });
+  }
+
+  /**
    * Check if user has access to project
    *
    * @private
