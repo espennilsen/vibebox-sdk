@@ -3,7 +3,7 @@
  * Global test setup for Vitest
  */
 import { beforeAll, afterAll, afterEach } from 'vitest';
-import { prisma } from '../src/lib/db';
+import { getPrismaClient, disconnectDb } from '../src/lib/db';
 
 // Set test environment
 process.env.NODE_ENV = 'test';
@@ -15,18 +15,20 @@ if (!process.env.DATABASE_URL_TEST) {
 
 beforeAll(async () => {
   // Connect to test database
+  const prisma = getPrismaClient();
   await prisma.$connect();
 });
 
 afterEach(async () => {
   // Clean up database after each test
   // Uncomment the following lines when models are created
+  // const prisma = getPrismaClient();
   // const deleteUsers = prisma.user.deleteMany();
   // const deleteTeams = prisma.team.deleteMany();
   // await prisma.$transaction([deleteUsers, deleteTeams]);
 });
 
 afterAll(async () => {
-  // Disconnect from database
-  await prisma.$disconnect();
+  // Disconnect from database using the disconnectDb helper
+  await disconnectDb();
 });
