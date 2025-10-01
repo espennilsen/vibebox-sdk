@@ -30,6 +30,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate Prisma Client
+        if: matrix.workspace == 'backend'
+        run: npm run db:generate --workspace=backend
+
       - name: Lint ${{ matrix.workspace }}
         run: npm run lint --workspace=${{ matrix.workspace }}
 
@@ -50,10 +54,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate Prisma Client
+        run: npm run db:generate --workspace=backend
+
+      - name: Run Prisma Migrations
+        run: npx prisma migrate deploy --schema=backend/prisma/schema.prisma
+        env:
+          DATABASE_URL: postgresql://vibebox:vibebox@localhost:5432/vibebox_test
+
       - name: Run backend tests
         run: npm run test --workspace=backend
         env:
           DATABASE_URL: postgresql://vibebox:vibebox@localhost:5432/vibebox_test
+          DATABASE_URL_TEST: postgresql://vibebox:vibebox@localhost:5432/vibebox_test
           NODE_ENV: test
           JWT_SECRET: test-secret
           JWT_REFRESH_SECRET: test-refresh-secret
@@ -113,6 +126,10 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Generate Prisma Client
+        if: matrix.workspace == 'backend'
+        run: npm run db:generate --workspace=backend
 
       - name: Build ${{ matrix.workspace }}
         run: npm run build --workspace=${{ matrix.workspace }}

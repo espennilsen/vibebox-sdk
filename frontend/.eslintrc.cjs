@@ -39,5 +39,5 @@ module.exports = {
     es2020: true,
     jest: true,
   },
-  ignorePatterns: ['.eslintrc.js', 'dist', 'node_modules', 'vite.config.ts'],
+  ignorePatterns: ['.eslintrc.cjs', 'dist', 'node_modules', 'vite.config.ts'],
 };

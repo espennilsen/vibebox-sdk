@@ -65,10 +65,23 @@ vibebox/
 
 4. **Set up database**
    ```bash
+   # Start PostgreSQL
+   docker-compose up postgres -d
+
+   # Apply migration
+   export POSTGRES_PASSWORD=vibebox_dev_pass  # or your password
+   ./scripts/setup-db.sh
+
+   # Generate Prisma Client
    cd backend
-   npm run migrate
+   npm run db:generate
    cd ..
+
+   # Verify (optional)
+   ./scripts/verify-migration.sh
    ```
+
+   📋 **Detailed instructions**: See [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)
 
 5. **Start development servers**
 

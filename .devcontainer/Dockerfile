@@ -100,6 +100,9 @@ RUN locale-gen en_US.UTF-8
 # Install Claude
 RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
 
+# Install eslint
+RUN npm install -g eslint
+
 # Install CodeRabbit CLI
 RUN curl -fsSL https://cli.coderabbit.ai/install.sh | zsh
 
