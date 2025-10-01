@@ -15,15 +15,22 @@ config({ path: resolve(__dirname, '../../.env') });
 // Set test environment
 process.env.NODE_ENV = 'test';
 
+// Replace 'postgres' hostname with 'localhost' for tests running outside Docker
+if (process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = process.env.DATABASE_URL.replace(/@postgres:/g, '@localhost:');
+}
+if (process.env.DATABASE_URL_TEST) {
+  process.env.DATABASE_URL_TEST = process.env.DATABASE_URL_TEST.replace(/@postgres:/g, '@localhost:');
+}
+
 // Ensure DATABASE_URL_TEST is set
 if (!process.env.DATABASE_URL_TEST) {
   throw new Error('DATABASE_URL_TEST environment variable is required for testing');
 }
 
 beforeAll(async () => {
-  // Connect to test database
-  const prisma = getPrismaClient();
-  await prisma.$connect();
+  // Skip database connection for pure unit tests (no database interaction)
+  // Integration tests will handle their own database setup
 });
 
 afterEach(async () => {

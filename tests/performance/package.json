@@ -1,0 +1,37 @@
+{
+  "name": "@vibebox/performance-tests",
+  "version": "1.0.0",
+  "description": "Performance and load testing suite for VibeBox using k6",
+  "scripts": {
+    "test": "npm run test:smoke",
+    "test:smoke": "./scripts/run-all.sh smoke",
+    "test:load": "./scripts/run-all.sh load",
+    "test:stress": "./scripts/run-all.sh stress",
+    "test:spike": "./scripts/run-all.sh spike",
+    "test:soak": "./scripts/run-all.sh soak",
+    "test:api": "k6 run --env SCENARIO=smoke scenarios/api-load.test.js",
+    "test:dashboard": "k6 run --env SCENARIO=smoke scenarios/dashboard-query.test.js",
+    "test:environment": "k6 run --env SCENARIO=smoke scenarios/environment-lifecycle.test.js",
+    "test:websocket": "k6 run --env SCENARIO=smoke scenarios/websocket-streaming.test.js",
+    "test:api:load": "k6 run --env SCENARIO=load scenarios/api-load.test.js",
+    "test:dashboard:load": "k6 run --env SCENARIO=load scenarios/dashboard-query.test.js",
+    "test:environment:load": "k6 run --env SCENARIO=load scenarios/environment-lifecycle.test.js",
+    "test:websocket:load": "k6 run --env SCENARIO=load scenarios/websocket-streaming.test.js",
+    "clean": "rm -rf results/*.json results/*.md",
+    "results": "ls -lh results/",
+    "report": "cat $(ls -t results/report_*.md | head -1)"
+  },
+  "keywords": [
+    "performance",
+    "load-testing",
+    "k6",
+    "vibebox",
+    "testing"
+  ],
+  "author": "VibeBox Team",
+  "license": "MIT",
+  "devDependencies": {},
+  "engines": {
+    "k6": ">=0.45.0"
+  }
+}

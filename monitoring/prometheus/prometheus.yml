@@ -1,0 +1,85 @@
+# Prometheus Configuration for VibeBox
+# Production-ready configuration with service discovery and alerting
+
+global:
+  # How frequently to scrape targets
+  scrape_interval: 15s
+
+  # How frequently to evaluate rules
+  evaluation_interval: 15s
+
+  # Timeout for scraping targets
+  scrape_timeout: 10s
+
+  # External labels to attach to any time series or alerts
+  external_labels:
+    cluster: 'vibebox'
+    environment: 'production'
+
+# Alertmanager configuration (optional, configure if using Alertmanager)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           - alertmanager:9093
+
+# Load alerting rules
+rule_files:
+  - '/etc/prometheus/alerts.yml'
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+
+  # VibeBox Backend API
+  - job_name: 'vibebox-backend'
+    metrics_path: '/health/metrics'
+    static_configs:
+      - targets: ['backend:3000']
+        labels:
+          service: 'vibebox-backend'
+          component: 'api'
+
+    # Optional: Add basic authentication if your metrics endpoint is protected
+    # basic_auth:
+    #   username: 'metrics'
+    #   password: 'secure-password'
+
+    # Relabel configurations for better metric organization
+    relabel_configs:
+      # Add instance label
+      - source_labels: [__address__]
+        target_label: instance
+
+      # Add job label
+      - source_labels: [job]
+        target_label: job
+
+  # PostgreSQL Database Metrics (if postgres_exporter is used)
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']
+  #       labels:
+  #         service: 'postgres'
+  #         component: 'database'
+
+  # Docker Container Metrics (if cAdvisor is used)
+  # - job_name: 'docker'
+  #   static_configs:
+  #     - targets: ['cadvisor:8080']
+  #       labels:
+  #         service: 'docker'
+  #         component: 'containers'
+
+  # Node Exporter for host metrics (CPU, memory, disk)
+  # - job_name: 'node'
+  #   static_configs:
+  #     - targets: ['node-exporter:9100']
+  #       labels:
+  #         service: 'node-exporter'
+  #         component: 'host'

@@ -509,6 +509,7 @@ export class SessionService {
    *
    * @private
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   private async checkEnvironmentAccess(project: any, userId: string): Promise<void> {
     const hasAccess =
       project.ownerId === userId ||

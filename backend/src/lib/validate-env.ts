@@ -3,7 +3,7 @@
  * Validate required environment variables on startup
  */
 
-const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET', 'JWT_REFRESH_SECRET', 'PORT'] as const;
+const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET', 'JWT_REFRESH_SECRET'] as const;
 
 export function validateEnv(): void {
   const missingVars: string[] = [];
@@ -26,6 +26,7 @@ export type RequiredEnvVar = (typeof requiredEnvVars)[number];
 export type OptionalEnvVar =
   | 'NODE_ENV'
   | 'HOST'
+  | 'PORT'
   | 'JWT_EXPIRES_IN'
   | 'JWT_REFRESH_EXPIRES_IN'
   | 'GITHUB_CLIENT_ID'

@@ -1,0 +1,218 @@
+# Prometheus Alert Rules for VibeBox
+# Production-ready alerting rules for monitoring critical issues
+
+groups:
+  # API Performance Alerts
+  - name: api_performance
+    interval: 30s
+    rules:
+      # High API latency
+      - alert: HighAPILatency
+        expr: histogram_quantile(0.95, rate(vibebox_http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High API latency detected"
+          description: "95th percentile API response time is {{ $value }}s (threshold: 1s) for route {{ $labels.route }}"
+
+      # Very high API latency
+      - alert: VeryHighAPILatency
+        expr: histogram_quantile(0.95, rate(vibebox_http_request_duration_seconds_bucket[5m])) > 5
+        for: 2m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "Critical API latency detected"
+          description: "95th percentile API response time is {{ $value }}s (threshold: 5s) for route {{ $labels.route }}"
+
+      # High error rate
+      - alert: HighAPIErrorRate
+        expr: rate(vibebox_api_errors_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High API error rate detected"
+          description: "API is experiencing {{ $value }} errors/second on route {{ $labels.route }}"
+
+      # Very high error rate
+      - alert: VeryHighAPIErrorRate
+        expr: rate(vibebox_api_errors_total[5m]) > 50
+        for: 2m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "Critical API error rate detected"
+          description: "API is experiencing {{ $value }} errors/second on route {{ $labels.route }}"
+
+  # Application Health Alerts
+  - name: application_health
+    interval: 30s
+    rules:
+      # Service down
+      - alert: ServiceDown
+        expr: up{job="vibebox-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "VibeBox backend service is down"
+          description: "The backend API service has been down for more than 1 minute"
+
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: rate(vibebox_process_cpu_seconds_total[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is {{ $value }}% (threshold: 80%)"
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: (vibebox_process_resident_memory_bytes / vibebox_process_virtual_memory_bytes) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is {{ $value }}% (threshold: 90%)"
+
+      # Event loop lag
+      - alert: HighEventLoopLag
+        expr: vibebox_nodejs_eventloop_lag_seconds > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: nodejs
+        annotations:
+          summary: "High Node.js event loop lag detected"
+          description: "Event loop lag is {{ $value }}s (threshold: 0.1s)"
+
+  # Database Alerts
+  - name: database_health
+    interval: 30s
+    rules:
+      # Slow database queries
+      - alert: SlowDatabaseQueries
+        expr: histogram_quantile(0.95, rate(vibebox_db_query_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "95th percentile query duration is {{ $value }}s (threshold: 1s) for operation {{ $labels.operation }} on model {{ $labels.model }}"
+
+      # Very slow database queries
+      - alert: VerySlowDatabaseQueries
+        expr: histogram_quantile(0.95, rate(vibebox_db_query_duration_seconds_bucket[5m])) > 5
+        for: 2m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "Critical database query performance"
+          description: "95th percentile query duration is {{ $value }}s (threshold: 5s) for operation {{ $labels.operation }} on model {{ $labels.model }}"
+
+  # Docker Operations Alerts
+  - name: docker_operations
+    interval: 30s
+    rules:
+      # High Docker operation failure rate
+      - alert: HighDockerFailureRate
+        expr: rate(vibebox_docker_operations_total{status="failure"}[5m]) / rate(vibebox_docker_operations_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: docker
+        annotations:
+          summary: "High Docker operation failure rate"
+          description: "{{ $value | humanizePercentage }} of {{ $labels.operation }} operations are failing"
+
+      # Slow Docker operations
+      - alert: SlowDockerOperations
+        expr: histogram_quantile(0.95, rate(vibebox_docker_operation_duration_seconds_bucket[5m])) > 30
+        for: 5m
+        labels:
+          severity: warning
+          component: docker
+        annotations:
+          summary: "Slow Docker operations detected"
+          description: "95th percentile {{ $labels.operation }} duration is {{ $value }}s (threshold: 30s)"
+
+  # Environment Monitoring Alerts
+  - name: environment_health
+    interval: 30s
+    rules:
+      # High number of environments in error state
+      - alert: HighEnvironmentErrorRate
+        expr: vibebox_environments_total{status="error"} > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: environments
+        annotations:
+          summary: "High number of environments in error state"
+          description: "{{ $value }} environments are currently in error state"
+
+      # No running environments (might be intentional, adjust as needed)
+      - alert: NoRunningEnvironments
+        expr: vibebox_environments_total{status="running"} == 0
+        for: 30m
+        labels:
+          severity: info
+          component: environments
+        annotations:
+          summary: "No running environments"
+          description: "There are currently no running environments"
+
+  # WebSocket Connection Alerts
+  - name: websocket_health
+    interval: 30s
+    rules:
+      # High number of WebSocket connections
+      - alert: HighWebSocketConnections
+        expr: vibebox_websocket_connections > 1000
+        for: 5m
+        labels:
+          severity: warning
+          component: websocket
+        annotations:
+          summary: "High number of WebSocket connections"
+          description: "Current WebSocket connections: {{ $value }} (threshold: 1000)"
+
+  # Authentication Alerts
+  - name: authentication
+    interval: 30s
+    rules:
+      # High authentication failure rate
+      - alert: HighAuthFailureRate
+        expr: rate(vibebox_auth_attempts_total{status="failure"}[5m]) / rate(vibebox_auth_attempts_total[5m]) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: auth
+        annotations:
+          summary: "High authentication failure rate"
+          description: "{{ $value | humanizePercentage }} of authentication attempts are failing for method {{ $labels.method }}"
+
+      # Potential brute force attack
+      - alert: PossibleBruteForceAttack
+        expr: rate(vibebox_auth_attempts_total{status="failure"}[1m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+          component: auth
+        annotations:
+          summary: "Possible brute force attack detected"
+          description: "{{ $value }} failed authentication attempts per second for method {{ $labels.method }}"

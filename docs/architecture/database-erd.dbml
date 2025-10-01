@@ -1,0 +1,310 @@
+// VibeBox Database Schema - dbdiagram.io format
+// View at: https://dbdiagram.io/
+// Paste this content to visualize the database schema
+
+Project VibeBox {
+  database_type: 'PostgreSQL'
+  Note: 'VibeBox - Development Environment Management Platform'
+}
+
+// User & Team Management
+
+Table users {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  email varchar(255) [unique, not null]
+  password_hash varchar(255) [null, note: 'Nullable for OAuth users']
+  display_name varchar(100) [not null]
+  avatar_url varchar(500) [null]
+  timezone varchar(50) [default: 'UTC']
+  locale varchar(10) [default: 'en-US']
+  ssh_public_key text [null]
+  notification_settings jsonb [default: '{}']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  last_login_at timestamp [null]
+
+  Indexes {
+    email [unique]
+    created_at
+  }
+
+  Note: 'Developer accounts with email or OAuth authentication'
+}
+
+Table teams {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  name varchar(100) [not null]
+  slug varchar(50) [unique, not null]
+  description text [null]
+  avatar_url varchar(500) [null]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  Indexes {
+    slug [unique]
+    name
+  }
+
+  Note: 'Organizations or teams for resource sharing'
+}
+
+Table user_teams {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  user_id uuid [not null, ref: > users.id]
+  team_id uuid [not null, ref: > teams.id]
+  role user_team_role [not null]
+  joined_at timestamp [default: `now()`]
+
+  Indexes {
+    (user_id, team_id) [unique]
+    team_id
+  }
+
+  Note: 'User-Team membership with roles (admin, developer, viewer)'
+}
+
+Enum user_team_role {
+  admin
+  developer
+  viewer
+}
+
+// Project Management
+
+Table projects {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  name varchar(100) [not null]
+  slug varchar(50) [not null]
+  description text [null]
+  owner_id uuid [null, ref: > users.id, note: 'XOR with team_id']
+  team_id uuid [null, ref: > teams.id, note: 'XOR with owner_id']
+  is_archived boolean [default: false]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  Indexes {
+    (slug, owner_id) [unique]
+    (slug, team_id) [unique]
+    owner_id
+    team_id
+  }
+
+  Note: 'Projects owned by User XOR Team (exactly one must be set)'
+}
+
+// Environments
+
+Table environments {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  name varchar(100) [not null]
+  slug varchar(50) [not null]
+  description text [null]
+  project_id uuid [not null, ref: > projects.id]
+  creator_id uuid [not null, ref: > users.id]
+  base_image varchar(255) [not null, note: 'Docker image (e.g., node:20)']
+  container_id varchar(255) [null, note: 'Docker container ID']
+  status environment_status [not null]
+  error_message text [null]
+  cpu_limit decimal(4,2) [default: 2.0, note: 'CPU cores']
+  memory_limit integer [default: 4096, note: 'Memory in MB']
+  storage_limit integer [default: 20480, note: 'Storage in MB']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  started_at timestamp [null]
+  stopped_at timestamp [null]
+
+  Indexes {
+    (project_id, slug) [unique]
+    project_id
+    creator_id
+    status
+    container_id
+  }
+
+  Note: 'Docker-based development environments'
+}
+
+Enum environment_status {
+  stopped
+  starting
+  running
+  stopping
+  error
+}
+
+Table environment_ports {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  environment_id uuid [not null, ref: > environments.id]
+  container_port integer [not null, note: '1-65535']
+  host_port integer [null, note: '1024-65535 or null for auto-assign']
+  protocol protocol [default: 'tcp']
+  description varchar(255) [null]
+
+  Indexes {
+    (environment_id, container_port) [unique]
+    environment_id
+    host_port
+  }
+
+  Note: 'Port mappings for network access to environments'
+}
+
+Enum protocol {
+  tcp
+  udp
+}
+
+Table environment_variables {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  environment_id uuid [not null, ref: > environments.id]
+  key varchar(255) [not null, note: 'Uppercase alphanumeric + underscore']
+  value text [not null, note: 'Encrypted if is_encrypted=true']
+  is_encrypted boolean [default: false]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  Indexes {
+    (environment_id, key) [unique]
+  }
+
+  Note: 'Environment variables for container runtime (secrets encrypted with AES-256)'
+}
+
+// Sessions
+
+Table sessions {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  environment_id uuid [not null, ref: > environments.id]
+  session_type session_type [not null]
+  session_name varchar(100) [not null]
+  status session_status [not null]
+  connection_url varchar(500) [null]
+  pid integer [null, note: 'Process ID in container']
+  created_at timestamp [default: `now()`]
+  last_activity_at timestamp [default: `now()`]
+  idle_timeout_minutes integer [default: 30]
+  terminated_at timestamp [null]
+
+  Indexes {
+    (environment_id, session_type, session_name) [unique]
+    environment_id
+    status
+    last_activity_at
+  }
+
+  Note: 'Active processes inside environments (VS Code, tmux, shell)'
+}
+
+Enum session_type {
+  vscode_server
+  tmux
+  shell
+}
+
+Enum session_status {
+  starting
+  active
+  idle
+  terminated
+}
+
+// Extensions
+
+Table extensions {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  extension_id varchar(255) [unique, not null, note: 'publisher.name format']
+  name varchar(255) [not null]
+  version varchar(50) [not null, note: 'Semver format']
+  description text [null]
+  publisher varchar(100) [not null]
+  icon_url varchar(500) [null]
+  is_custom boolean [default: false]
+  download_url varchar(500) [null, note: 'For custom extensions']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  Indexes {
+    extension_id [unique]
+    publisher
+    is_custom
+  }
+
+  Note: 'VS Code extension metadata catalog'
+}
+
+Table environment_extensions {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  environment_id uuid [not null, ref: > environments.id]
+  extension_id uuid [not null, ref: > extensions.id]
+  status environment_extension_status [not null]
+  error_message text [null]
+  installed_at timestamp [null]
+  created_at timestamp [default: `now()`]
+
+  Indexes {
+    (environment_id, extension_id) [unique]
+    status
+  }
+
+  Note: 'Environment-Extension junction with installation status'
+}
+
+Enum environment_extension_status {
+  pending
+  installing
+  installed
+  failed
+  uninstalling
+}
+
+// Logging
+
+Table log_entries {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  environment_id uuid [not null, ref: > environments.id]
+  timestamp timestamp [not null]
+  stream log_stream [not null]
+  message text [not null]
+  created_at timestamp [default: `now()`]
+
+  Indexes {
+    (environment_id, timestamp) [note: 'DESC order']
+    created_at
+  }
+
+  Note: 'Persistent log storage (7-day retention, 20MB per environment)'
+}
+
+Enum log_stream {
+  stdout
+  stderr
+}
+
+// Relationships Notes
+
+Ref: "User-Team Membership" {
+  users.id < user_teams.user_id
+  teams.id < user_teams.team_id
+}
+
+Ref: "Project Ownership" {
+  users.id < projects.owner_id [note: 'Personal projects']
+  teams.id < projects.team_id [note: 'Team projects']
+}
+
+Ref: "Environment Hierarchy" {
+  projects.id < environments.project_id
+  users.id < environments.creator_id
+}
+
+Ref: "Environment Configuration" {
+  environments.id < environment_ports.environment_id
+  environments.id < environment_variables.environment_id
+  environments.id < sessions.environment_id
+  environments.id < log_entries.environment_id
+}
+
+Ref: "Extension Management" {
+  extensions.id < environment_extensions.extension_id
+  environments.id < environment_extensions.environment_id
+}

@@ -1,0 +1,39 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vibebox-config
+  namespace: vibebox
+  labels:
+    app.kubernetes.io/name: vibebox
+    app.kubernetes.io/component: config
+data:
+  # Backend Configuration
+  NODE_ENV: "production"
+  HOST: "0.0.0.0"
+  PORT: "3000"
+
+  # PostgreSQL Configuration (non-sensitive)
+  POSTGRES_DB: "vibebox"
+  POSTGRES_PORT: "5432"
+
+  # Frontend Configuration
+  VITE_API_URL: "http://vibebox-backend:3000"
+
+  # Feature Flags
+  ENABLE_OAUTH: "false"
+  ENABLE_METRICS: "true"
+  ENABLE_AUDIT_LOGS: "true"
+
+  # Resource Limits (default environment limits)
+  DEFAULT_CPU_LIMIT: "2.0"
+  DEFAULT_MEMORY_LIMIT: "4096"
+  DEFAULT_STORAGE_LIMIT: "20480"
+
+  # Session Configuration
+  SESSION_IDLE_TIMEOUT_MINUTES: "30"
+
+  # Log Configuration
+  LOG_LEVEL: "info"
+  LOG_RETENTION_DAYS: "7"
+  LOG_MAX_SIZE_MB: "20"

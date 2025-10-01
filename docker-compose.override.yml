@@ -1,0 +1,34 @@
+# Docker Compose Override - For dev container compatibility
+# This file uses absolute host paths for volume mounts when running from dev container
+
+version: '3.8'
+
+services:
+  backend:
+    volumes:
+      - /Users/espen/Dev/vibebox/backend:/app
+      - /app/node_modules
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  frontend:
+    volumes:
+      - /Users/espen/Dev/vibebox/frontend:/app
+      - /app/node_modules
+
+  prometheus:
+    volumes:
+      - /Users/espen/Dev/vibebox/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /Users/espen/Dev/vibebox/monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+
+  grafana:
+    volumes:
+      - /Users/espen/Dev/vibebox/monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - /Users/espen/Dev/vibebox/monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - /Users/espen/Dev/vibebox/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana_data:/var/lib/grafana
+
+volumes:
+  postgres_data:
+  prometheus_data:
+  grafana_data:

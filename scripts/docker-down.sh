@@ -6,6 +6,6 @@ set -e
 
 echo "🛑 Stopping VibeBox services..."
 
-docker-compose down
+docker compose down
 
 echo "✅ Services stopped successfully!"

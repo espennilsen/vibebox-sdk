@@ -1,0 +1,131 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: vibebox-postgres
+  namespace: vibebox
+  labels:
+    app.kubernetes.io/name: vibebox
+    app.kubernetes.io/component: database
+    app.kubernetes.io/version: "16"
+spec:
+  serviceName: vibebox-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vibebox
+      app.kubernetes.io/component: database
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vibebox
+        app.kubernetes.io/component: database
+        app.kubernetes.io/version: "16"
+    spec:
+      # Security Context
+      securityContext:
+        fsGroup: 999  # postgres group
+        runAsUser: 999  # postgres user
+        runAsNonRoot: true
+
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+
+          # Security Context
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false  # PostgreSQL needs to write to /var/lib/postgresql/data
+
+          # Environment Variables
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: vibebox-config
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: vibebox-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: vibebox-secrets
+                  key: POSTGRES_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+
+          # Ports
+          ports:
+            - name: postgres
+              containerPort: 5432
+              protocol: TCP
+
+          # Resource Limits
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+
+          # Volume Mounts
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+            - name: tmp
+              mountPath: /tmp
+            - name: run
+              mountPath: /var/run/postgresql
+
+          # Health Checks
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+      # Volumes
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
+
+  # Volume Claim Templates
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+        labels:
+          app.kubernetes.io/name: vibebox
+          app.kubernetes.io/component: database
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 20Gi
+        storageClassName: standard  # Change based on your cluster

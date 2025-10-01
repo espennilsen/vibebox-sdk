@@ -1,0 +1,275 @@
+# Default values for vibebox
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global configuration
+global:
+  # Domain name for the application
+  domain: vibebox.yourdomain.com
+
+  # Image pull secrets (if using private registry)
+  # imagePullSecrets:
+  #   - name: regcred
+
+# Namespace configuration
+namespace:
+  create: true
+  name: vibebox
+
+# Backend configuration
+backend:
+  replicaCount: 2
+
+  image:
+    repository: vibebox/backend
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 3000
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  # Horizontal Pod Autoscaler
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  # Environment variables (non-sensitive)
+  env:
+    NODE_ENV: production
+    HOST: "0.0.0.0"
+    PORT: "3000"
+    LOG_LEVEL: info
+    ENABLE_METRICS: "true"
+    ENABLE_AUDIT_LOGS: "true"
+
+  # Health check configuration
+  healthCheck:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+
+# Frontend configuration
+frontend:
+  replicaCount: 2
+
+  image:
+    repository: vibebox/frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 80
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Horizontal Pod Autoscaler
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 60
+    targetMemoryUtilizationPercentage: 70
+
+  # Health check configuration
+  healthCheck:
+    enabled: true
+    path: /
+    initialDelaySeconds: 10
+    periodSeconds: 10
+
+# PostgreSQL configuration
+postgresql:
+  enabled: true
+
+  image:
+    repository: postgres
+    tag: 16-alpine
+    pullPolicy: IfNotPresent
+
+  # Persistence
+  persistence:
+    enabled: true
+    storageClass: standard
+    size: 20Gi
+    accessMode: ReadWriteOnce
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+
+  # PostgreSQL configuration
+  config:
+    database: vibebox
+    port: 5432
+
+  # Health check configuration
+  healthCheck:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+
+# Docker-in-Docker configuration
+dockerDind:
+  enabled: true
+
+  image:
+    repository: docker
+    tag: 24.0-dind
+    pullPolicy: IfNotPresent
+
+  # Single replica recommended
+  replicaCount: 1
+
+  service:
+    type: ClusterIP
+    port: 2375
+
+  # Persistence for Docker data
+  persistence:
+    enabled: true
+    storageClass: standard
+    size: 50Gi
+    accessMode: ReadWriteOnce
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+
+  # Security (DinD requires privileged mode)
+  securityContext:
+    privileged: true
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/websocket-services: "vibebox-backend"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/limit-connections: "50"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+
+  tls:
+    enabled: true
+    secretName: vibebox-tls-cert
+
+# Certificate Manager configuration
+certManager:
+  enabled: true
+  email: your-email@example.com  # CHANGE THIS
+  issuer: letsencrypt-prod
+
+# Network Policies
+networkPolicy:
+  enabled: true
+
+# RBAC configuration
+rbac:
+  create: true
+
+# Service Account
+serviceAccount:
+  create: true
+  annotations: {}
+
+# Secrets configuration
+# IMPORTANT: Set these via --set flags or separate secrets file
+secrets:
+  # PostgreSQL credentials
+  postgresUser: vibebox
+  postgresPassword: ""  # REQUIRED: Set via --set or external secrets
+
+  # JWT secrets (base64 encoded)
+  jwtSecret: ""  # REQUIRED: Set via --set or external secrets
+  jwtRefreshSecret: ""  # REQUIRED: Set via --set or external secrets
+
+  # Encryption key (base64 encoded)
+  encryptionKey: ""  # REQUIRED: Set via --set or external secrets
+
+  # OAuth credentials (optional)
+  githubClientId: ""
+  githubClientSecret: ""
+  googleClientId: ""
+  googleClientSecret: ""
+
+  # External secrets operator (recommended for production)
+  externalSecrets:
+    enabled: false
+    backend: secretsManager  # Options: secretsManager, vault, gcpSecretsManager, azureKeyVault
+    region: us-east-1
+    secretStoreRef:
+      name: vibebox-secret-store
+
+# Pod Security Standards
+podSecurityStandards:
+  enforce: baseline  # Options: privileged, baseline, restricted
+
+# Monitoring and observability
+monitoring:
+  enabled: false
+  prometheus:
+    enabled: false
+    serviceMonitor:
+      enabled: false
+  grafana:
+    enabled: false
+
+# Backup configuration
+backup:
+  enabled: false
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  retention: 7  # Keep 7 days of backups
+
+# Resource quotas
+resourceQuota:
+  enabled: false
+  hard:
+    requests.cpu: "10"
+    requests.memory: 20Gi
+    limits.cpu: "20"
+    limits.memory: 40Gi
+
+# Limit ranges
+limitRange:
+  enabled: false
+  default:
+    cpu: 500m
+    memory: 512Mi
+  defaultRequest:
+    cpu: 100m
+    memory: 128Mi

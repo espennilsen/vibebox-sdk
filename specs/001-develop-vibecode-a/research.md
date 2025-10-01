@@ -252,3 +252,26 @@
 - [x] No blocking unknowns remaining
 
 **Status**: ✅ Ready for Phase 1 (Design & Contracts)
+
+---
+
+## Research Addendum
+
+For comprehensive retroactive documentation of 10 additional implementation decisions made during development, see:
+
+**[Research Addendum](./research-addendum.md)** - Detailed analysis of:
+
+1. Testing Framework Selection (Vitest vs Jest)
+2. PostgreSQL ORM Selection (Prisma vs TypeORM)
+3. Build Tools - Frontend (Vite)
+4. Build Tools - Backend (tsc)
+5. OAuth Provider Strategy (GitHub, Google, GitLab)
+6. VS Code Extension Management Approach
+7. Session Management (tmux, code-server)
+8. Docker Image Strategy (Node.js Alpine)
+9. Log Rotation Implementation (Pino + Database)
+10. Development Environment Setup (Docker Compose)
+
+This addendum provides the formal research documentation, alternatives analysis, and implementation details for decisions made pragmatically during development. All decisions were sound and production-ready; this document fills documentation gaps for architectural transparency.
+
+**Status**: Documentation complete (70% → 100%)

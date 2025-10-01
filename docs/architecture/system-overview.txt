@@ -1,0 +1,215 @@
+================================================================================
+                    VIBEBOX SYSTEM ARCHITECTURE
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                             CLIENT LAYER                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌──────────────┐                           ┌──────────────┐              │
+│  │ Web Browser  │                           │  CLI Tool    │              │
+│  └──────┬───────┘                           └──────┬───────┘              │
+│         │                                           │                       │
+└─────────┼───────────────────────────────────────────┼───────────────────────┘
+          │                                           │
+          ▼                                           │
+┌─────────────────────────────────────────────────────┼───────────────────────┐
+│                      FRONTEND APPLICATION           │                       │
+├─────────────────────────────────────────────────────┼───────────────────────┤
+│         │                                           │                       │
+│  ┌──────▼───────────────────────────────────┐      │                       │
+│  │         React Application                 │      │                       │
+│  │  (TypeScript + Vite + Material-UI)       │      │                       │
+│  │                                           │      │                       │
+│  │  ┌─────────────┐  ┌──────────────┐       │      │                       │
+│  │  │ React Router│  │  xterm.js    │       │      │                       │
+│  │  │   Routing   │  │  Terminal    │       │      │                       │
+│  │  └─────────────┘  └──────────────┘       │      │                       │
+│  │                                           │      │                       │
+│  │  ┌─────────────────────────────┐         │      │                       │
+│  │  │   WebSocket Client          │         │      │                       │
+│  │  │   (Real-time Updates)       │         │      │                       │
+│  │  └─────────────────────────────┘         │      │                       │
+│  └───────────────────┬───────────────────────┘      │                       │
+│                      │                              │                       │
+└──────────────────────┼──────────────────────────────┼───────────────────────┘
+                       │                              │
+                       │ HTTPS                        │ HTTPS
+                       ▼                              ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          API LAYER (Fastify)                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌────────────────────────────────────────────────────────────────┐        │
+│  │                     API Gateway                                │        │
+│  │                                                                │        │
+│  │  1. CORS Middleware  →  2. JWT Authentication  →              │        │
+│  │  3. Rate Limiting    →  4. Request Routing                    │        │
+│  └────────┬────────────────────────────────────────────┬──────────┘        │
+│           │                                            │                   │
+│           ▼                                            ▼                   │
+│  ┌────────────────┐                         ┌─────────────────┐           │
+│  │  REST Routes   │                         │ WebSocket Server│           │
+│  │  /api/v1/*     │                         │  /api/v1/ws/*   │           │
+│  └────────┬───────┘                         └────────┬────────┘           │
+│           │                                          │                     │
+└───────────┼──────────────────────────────────────────┼─────────────────────┘
+            │                                          │
+            ▼                                          ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         SERVICE LAYER                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+│  │Auth Service  │  │User Service  │  │Team Service  │  │Project Svc   │  │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  │
+│         │                 │                 │                 │           │
+│  ┌──────▼───────┐  ┌──────▼───────┐  ┌──────▼───────┐  ┌──────▼───────┐  │
+│  │Environment   │  │Session       │  │Extension     │  │Log Service   │  │
+│  │Service       │  │Service       │  │Service       │  │              │  │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  │
+│         │                 │                 │                 │           │
+│  ┌──────▼────────────────────────┐   ┌──────▼──────────────────────┐     │
+│  │     Docker Service             │   │   WebSocket Service         │     │
+│  │  (Container Management)        │   │  (Real-time Streaming)      │     │
+│  └────────────────┬───────────────┘   └─────────────────────────────┘     │
+│                   │                                                        │
+└───────────────────┼────────────────────────────────────────────────────────┘
+                    │
+                    │ (All services use Prisma ORM)
+                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          DATA LAYER                                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌────────────────────┐                    ┌────────────────────┐          │
+│  │   Prisma ORM       │                    │   Redis Cache      │          │
+│  │ (Type-Safe Queries)│                    │ (Sessions, State)  │          │
+│  └─────────┬──────────┘                    └────────────────────┘          │
+│            │                                                                │
+│            ▼                                                                │
+│  ┌────────────────────────────────────────┐                                │
+│  │        PostgreSQL Database             │                                │
+│  │                                        │                                │
+│  │  • Users & Teams                       │                                │
+│  │  • Projects & Environments             │                                │
+│  │  • Sessions & Extensions               │                                │
+│  │  • Logs & Variables                    │                                │
+│  └────────────────────────────────────────┘                                │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                    │
+                    │ Container API
+                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       EXTERNAL SERVICES                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌────────────────────────────────────────────────────────────────┐        │
+│  │                    Docker Engine                               │        │
+│  │              (Container Runtime)                               │        │
+│  │                                                                │        │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐        │        │
+│  │  │ Container 1  │  │ Container 2  │  │ Container N  │        │        │
+│  │  │              │  │              │  │              │        │        │
+│  │  │ • VS Code    │  │ • tmux       │  │ • Shell      │        │        │
+│  │  │   Server     │  │   Sessions   │  │   Sessions   │        │        │
+│  │  │ • Extensions │  │ • Logs       │  │ • Logs       │        │        │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘        │        │
+│  └────────────────────────────────────────────────────────────────┘        │
+│                                                                             │
+│  ┌────────────────────────────────────────────────────────────────┐        │
+│  │                  OAuth Providers                               │        │
+│  │                                                                │        │
+│  │        GitHub OAuth            Google OAuth                   │        │
+│  └────────────────────────────────────────────────────────────────┘        │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       INFRASTRUCTURE LAYER                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌────────────────────────────────────────────────────────────────┐        │
+│  │               Kubernetes Cluster                               │        │
+│  │                                                                │        │
+│  │  • Ingress Controller (SSL Termination)                       │        │
+│  │  • Frontend Pods (React App Serving)                          │        │
+│  │  • Backend Pods (API Servers)                                 │        │
+│  │  • PostgreSQL StatefulSet                                     │        │
+│  │  • Redis StatefulSet                                          │        │
+│  │  • Docker Host Nodes                                          │        │
+│  │                                                                │        │
+│  │  External:                                                     │        │
+│  │  • Persistent Volumes (Database Storage)                      │        │
+│  │  • Secret Manager (Environment Variables, Keys)               │        │
+│  └────────────────────────────────────────────────────────────────┘        │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+                            DATA FLOW
+================================================================================
+
+REST API Request Flow:
+─────────────────────
+Client → API Gateway → CORS → JWT Auth → Rate Limit → Routes → Services →
+Prisma → PostgreSQL → Services → Routes → Gateway → Client
+
+WebSocket Flow:
+──────────────
+Client → WebSocket Server → Auth → Subscribe → Docker Service → Container →
+Stream Logs → WebSocket Service → Client (continuous)
+
+Docker Container Lifecycle:
+──────────────────────────
+1. Client creates environment (POST /environments)
+2. Environment Service validates request
+3. Docker Service pulls base image
+4. Docker Service creates container with limits
+5. Container started and monitored
+6. Sessions (VS Code, tmux) initialized
+7. Real-time logs streamed via WebSocket
+8. Client can attach terminal, manage extensions
+
+================================================================================
+                          TECHNOLOGY STACK
+================================================================================
+
+Frontend:
+  • React 18 (UI Framework)
+  • TypeScript 5.x (Type Safety)
+  • Material-UI (Component Library)
+  • Vite (Build Tool)
+  • xterm.js (Terminal Emulator)
+  • WebSocket (Real-time)
+
+Backend:
+  • Node.js 20 (Runtime)
+  • Fastify (Web Framework)
+  • TypeScript 5.x (Type Safety)
+  • dockerode (Docker API Client)
+  • Passport.js (OAuth)
+  • Prisma ORM (Database)
+
+Data:
+  • PostgreSQL 16 (Primary Database)
+  • Redis (Cache & Sessions)
+
+Infrastructure:
+  • Docker (Containers)
+  • Kubernetes (Orchestration)
+  • Nginx Ingress (Load Balancer)
+
+================================================================================
+                        PERFORMANCE TARGETS
+================================================================================
+
+• API Response: < 1s for CRUD operations
+• Environment Startup: < 2s (excluding Docker pull)
+• Log Streaming Latency: < 100ms per line
+• Dashboard Queries: < 200ms p95
+• Concurrent Environments: 10 per user
+• Total Scale: 1,000+ environments
+
+================================================================================

@@ -1,0 +1,49 @@
+# Dependencies
+node_modules
+npm-debug.log*
+
+# Build outputs (keep dist for Docker build)
+# dist
+
+# Environment files
+.env
+.env.*
+
+# Tests
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+__tests__
+coverage
+
+# Documentation
+*.md
+docs
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Logs
+logs
+*.log
+
+# Docker
+Dockerfile*
+.dockerignore
+
+# CI/CD
+.github
+
+# Misc
+tmp
+temp
+.DS_Store
+public

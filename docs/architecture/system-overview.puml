@@ -1,0 +1,179 @@
+@startuml VibeBox System Architecture
+
+!define RECTANGLE class
+
+' Color scheme
+!define CLIENT_COLOR #61dafb
+!define API_COLOR #68a063
+!define SERVICE_COLOR #f39c12
+!define DATA_COLOR #336791
+!define EXTERNAL_COLOR #e74c3c
+!define INFRA_COLOR #9b59b6
+
+skinparam rectangle {
+    BackgroundColor<<client>> CLIENT_COLOR
+    BackgroundColor<<api>> API_COLOR
+    BackgroundColor<<service>> SERVICE_COLOR
+    BackgroundColor<<data>> DATA_COLOR
+    BackgroundColor<<external>> EXTERNAL_COLOR
+    BackgroundColor<<infra>> INFRA_COLOR
+}
+
+' Client Layer
+package "Client Layer" {
+    rectangle "Web Browser" <<client>> as Browser
+    rectangle "CLI Tool" <<client>> as CLI
+}
+
+' Frontend Application
+package "Frontend Application" {
+    rectangle "React App\nTypeScript + Vite" <<client>> as React
+    rectangle "React Router" <<client>> as ReactRouter
+    rectangle "Material-UI" <<client>> as MUI
+    rectangle "xterm.js Terminal" <<client>> as XTerm
+    rectangle "WebSocket Client" <<client>> as WSClient
+}
+
+' API Layer
+package "API Layer" {
+    rectangle "API Gateway\nFastify" <<api>> as Gateway
+    rectangle "CORS Middleware" <<api>> as CORS
+    rectangle "JWT Auth" <<api>> as JWT
+    rectangle "Rate Limiter" <<api>> as RateLimit
+    rectangle "REST Routes" <<api>> as Routes
+    rectangle "WebSocket Server" <<api>> as WSServer
+}
+
+' Service Layer
+package "Service Layer" {
+    rectangle "Auth Service" <<service>> as AuthService
+    rectangle "User Service" <<service>> as UserService
+    rectangle "Team Service" <<service>> as TeamService
+    rectangle "Project Service" <<service>> as ProjectService
+    rectangle "Environment Service" <<service>> as EnvService
+    rectangle "Session Service" <<service>> as SessionService
+    rectangle "Extension Service" <<service>> as ExtService
+    rectangle "Log Service" <<service>> as LogService
+    rectangle "Docker Service" <<service>> as DockerService
+    rectangle "WebSocket Service" <<service>> as WSService
+}
+
+' Data Layer
+package "Data Layer" {
+    rectangle "Prisma ORM" <<data>> as Prisma
+    database "PostgreSQL\nDatabase" <<data>> as PostgreSQL
+    database "Redis Cache" <<data>> as RedisCache
+}
+
+' External Services
+package "External Services" {
+    rectangle "Docker Engine\nContainer Runtime" <<external>> as Docker
+    rectangle "VS Code Server" <<external>> as VSCode
+    rectangle "tmux Sessions" <<external>> as Tmux
+    rectangle "OAuth Providers\nGitHub, Google" <<external>> as OAuth
+}
+
+' Infrastructure
+package "Infrastructure" {
+    rectangle "Kubernetes Cluster" <<infra>> as K8s
+    rectangle "Ingress Controller" <<infra>> as Ingress
+    rectangle "Persistent Volumes" <<infra>> as PV
+    rectangle "Secret Manager" <<infra>> as Secrets
+}
+
+' Client to Frontend
+Browser --> React
+CLI --> Routes
+
+' Frontend Internal
+React --> ReactRouter
+React --> MUI
+React --> XTerm
+React --> WSClient
+
+' Frontend to API
+ReactRouter --> Gateway
+WSClient --> WSServer
+
+' API Gateway Flow
+Gateway --> CORS
+CORS --> JWT
+JWT --> RateLimit
+RateLimit --> Routes
+RateLimit --> WSServer
+
+' Routes to Services
+Routes --> AuthService
+Routes --> UserService
+Routes --> TeamService
+Routes --> ProjectService
+Routes --> EnvService
+Routes --> SessionService
+Routes --> ExtService
+Routes --> LogService
+
+' WebSocket to Services
+WSServer --> WSService
+WSService --> LogService
+WSService --> EnvService
+WSService --> DockerService
+
+' Services to Data
+AuthService --> Prisma
+UserService --> Prisma
+TeamService --> Prisma
+ProjectService --> Prisma
+EnvService --> Prisma
+SessionService --> Prisma
+ExtService --> Prisma
+LogService --> Prisma
+
+' Prisma to Database
+Prisma --> PostgreSQL
+
+' Cache Integration (dotted)
+AuthService ..> RedisCache : cache
+EnvService ..> RedisCache : cache
+SessionService ..> RedisCache : cache
+
+' External Service Integration
+AuthService --> OAuth
+EnvService --> DockerService
+DockerService --> Docker
+SessionService --> Docker
+Docker --> VSCode
+Docker --> Tmux
+
+' Infrastructure
+K8s --> Gateway
+K8s --> PostgreSQL
+K8s --> Docker
+Ingress --> K8s
+PV --> PostgreSQL
+Secrets --> Gateway
+
+note right of Gateway
+  Entry point for all API requests
+  - CORS handling
+  - Authentication (JWT)
+  - Rate limiting
+  - Request routing
+end note
+
+note right of DockerService
+  Manages Docker container lifecycle
+  - Create/start/stop containers
+  - Attach to container logs
+  - Execute commands
+  - Monitor resource usage
+end note
+
+note bottom of PostgreSQL
+  Primary data store
+  - User accounts
+  - Projects & Environments
+  - Sessions & Logs
+  - Extensions
+end note
+
+@enduml

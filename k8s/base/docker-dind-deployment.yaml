@@ -1,0 +1,121 @@
+---
+# Docker-in-Docker Deployment
+# Provides Docker daemon for creating user development environments
+# WARNING: DinD is privileged and should be isolated with NetworkPolicies
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vibebox-docker-dind
+  namespace: vibebox
+  labels:
+    app.kubernetes.io/name: vibebox
+    app.kubernetes.io/component: docker-dind
+    app.kubernetes.io/version: "24.0"
+spec:
+  replicas: 1  # Single replica recommended for resource management
+  strategy:
+    type: Recreate  # Avoid concurrent DinD instances
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vibebox
+      app.kubernetes.io/component: docker-dind
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vibebox
+        app.kubernetes.io/component: docker-dind
+        app.kubernetes.io/version: "24.0"
+    spec:
+      serviceAccountName: vibebox-docker-dind
+
+      # Security Context - DinD requires privileged mode
+      securityContext:
+        fsGroup: 1000
+
+      containers:
+        - name: docker-dind
+          image: docker:24.0-dind
+          imagePullPolicy: IfNotPresent
+
+          # Security Context - Privileged required for DinD
+          securityContext:
+            privileged: true  # Required for Docker daemon
+
+          # Environment Variables
+          env:
+            - name: DOCKER_TLS_CERTDIR
+              value: ""  # Disable TLS for simplicity (use NetworkPolicy for isolation)
+            - name: DOCKER_DRIVER
+              value: overlay2
+
+          # Ports
+          ports:
+            - name: docker
+              containerPort: 2375
+              protocol: TCP
+
+          # Resource Limits
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              cpu: 4000m
+              memory: 8Gi
+
+          # Volume Mounts
+          volumeMounts:
+            - name: docker-data
+              mountPath: /var/lib/docker
+            - name: docker-tmp
+              mountPath: /tmp
+
+          # Health Checks
+          livenessProbe:
+            exec:
+              command:
+                - docker
+                - info
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+
+          readinessProbe:
+            exec:
+              command:
+                - docker
+                - info
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+      # Volumes
+      volumes:
+        - name: docker-data
+          persistentVolumeClaim:
+            claimName: docker-data-pvc
+        - name: docker-tmp
+          emptyDir: {}
+
+---
+# Docker-in-Docker Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: vibebox-docker-dind
+  namespace: vibebox
+  labels:
+    app.kubernetes.io/name: vibebox
+    app.kubernetes.io/component: docker-dind
+spec:
+  type: ClusterIP
+  ports:
+    - name: docker
+      port: 2375
+      targetPort: docker
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: vibebox
+    app.kubernetes.io/component: docker-dind

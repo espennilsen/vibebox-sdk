@@ -48,6 +48,11 @@
     "tests",
     "src/api/websocket/logStream.ts",
     "src/api/websocket/terminal.ts",
-    "src/api/websocket/status.ts"
+    "src/api/websocket/status.ts",
+    "src/lib/secrets/aws.ts",
+    "src/lib/secrets/azure.ts",
+    "src/lib/secrets/gcp.ts",
+    "src/lib/secrets/kubernetes.ts",
+    "src/lib/secrets/vault.ts"
   ]
 }

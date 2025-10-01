@@ -12,7 +12,7 @@ if [ -f .env ]; then
 fi
 
 # Check if PostgreSQL is running
-if ! docker-compose ps postgres | grep -q "Up"; then
+if ! docker compose ps postgres | grep -q "Up"; then
     echo "❌ PostgreSQL container is not running!"
     echo "Start it with: npm run test:db:up"
     exit 1

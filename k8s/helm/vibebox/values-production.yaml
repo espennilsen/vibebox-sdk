@@ -1,0 +1,202 @@
+# Production overrides for VibeBox Helm chart
+# Usage: helm install vibebox ./vibebox -f values.yaml -f values-production.yaml
+
+# Global configuration
+global:
+  domain: vibebox.yourdomain.com  # CHANGE THIS
+
+# Backend production settings
+backend:
+  replicaCount: 3  # More replicas for HA
+
+  image:
+    repository: your-registry.io/vibebox/backend
+    tag: v1.0.0  # Use specific version tags
+    pullPolicy: Always
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 60
+    targetMemoryUtilizationPercentage: 70
+
+  env:
+    NODE_ENV: production
+    LOG_LEVEL: warn
+    ENABLE_METRICS: "true"
+    ENABLE_AUDIT_LOGS: "true"
+
+# Frontend production settings
+frontend:
+  replicaCount: 3
+
+  image:
+    repository: your-registry.io/vibebox/frontend
+    tag: v1.0.0
+    pullPolicy: Always
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 50
+
+# PostgreSQL production settings
+postgresql:
+  enabled: true
+
+  persistence:
+    enabled: true
+    storageClass: gp3  # Use faster storage class
+    size: 100Gi
+
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+
+  config:
+    # Production PostgreSQL settings
+    maxConnections: 200
+    sharedBuffers: 2GB
+    effectiveCacheSize: 6GB
+    maintenanceWorkMem: 512MB
+    walBuffers: 16MB
+
+# Docker-in-Docker production settings
+dockerDind:
+  enabled: true
+
+  persistence:
+    enabled: true
+    storageClass: gp3
+    size: 200Gi  # Larger storage for production
+
+  resources:
+    requests:
+      cpu: 2000m
+      memory: 4Gi
+    limits:
+      cpu: 8000m
+      memory: 16Gi
+
+# Ingress production settings
+ingress:
+  enabled: true
+  className: nginx
+
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "500m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "7200"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "7200"
+    nginx.ingress.kubernetes.io/websocket-services: "vibebox-backend"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/limit-rps: "500"
+    nginx.ingress.kubernetes.io/limit-connections: "200"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+
+  tls:
+    enabled: true
+    secretName: vibebox-tls-cert
+
+# Certificate Manager
+certManager:
+  enabled: true
+  email: ops@yourdomain.com  # CHANGE THIS
+  issuer: letsencrypt-prod
+
+# Network Policies (enforced)
+networkPolicy:
+  enabled: true
+
+# RBAC (enforced)
+rbac:
+  create: true
+
+# External Secrets Operator (recommended)
+secrets:
+  externalSecrets:
+    enabled: true
+    backend: secretsManager  # AWS Secrets Manager
+    region: us-east-1
+    secretStoreRef:
+      name: vibebox-secret-store
+
+# Pod Security Standards (restricted)
+podSecurityStandards:
+  enforce: restricted
+
+# Monitoring and observability
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+  grafana:
+    enabled: true
+
+# Backup configuration
+backup:
+  enabled: true
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  retention: 30  # Keep 30 days of backups
+
+# Resource quotas (enforced)
+resourceQuota:
+  enabled: true
+  hard:
+    requests.cpu: "50"
+    requests.memory: 100Gi
+    limits.cpu: "100"
+    limits.memory: 200Gi
+    persistentvolumeclaims: "20"
+
+# Limit ranges (enforced)
+limitRange:
+  enabled: true
+  default:
+    cpu: 1000m
+    memory: 1Gi
+  defaultRequest:
+    cpu: 250m
+    memory: 256Mi
+  max:
+    cpu: 8000m
+    memory: 16Gi
+  min:
+    cpu: 50m
+    memory: 64Mi
+
+# Pod Disruption Budgets
+podDisruptionBudget:
+  enabled: true
+  backend:
+    minAvailable: 2
+  frontend:
+    minAvailable: 2
+  postgresql:
+    minAvailable: 1

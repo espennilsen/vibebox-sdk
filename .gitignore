@@ -40,3 +40,9 @@ coverage/
 # Temporary files
 tmp/
 temp/
+
+# Kubernetes secrets (never commit!)
+k8s/base/secrets.yaml
+k8s/scripts/secrets.yaml
+k8s/helm/vibebox/secrets.yaml
+*.secret

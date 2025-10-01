@@ -550,6 +550,7 @@ export class DockerService {
       }
 
       // Pull image
+      // eslint-disable-next-line no-console
       console.log(`Pulling Docker image: ${image}`);
       const stream = await this.docker.pull(image);
 
@@ -564,6 +565,7 @@ export class DockerService {
         });
       });
 
+      // eslint-disable-next-line no-console
       console.log(`Successfully pulled image: ${image}`);
     } catch (error) {
       console.error('Docker pull image error:', error);

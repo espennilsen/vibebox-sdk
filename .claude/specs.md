@@ -47,6 +47,19 @@ All design artifacts are located in `/workspace/specs/001-develop-vibecode-a/`:
 - **[contracts/openapi.yaml](../specs/001-develop-vibecode-a/contracts/openapi.yaml)** - REST API specification
 - **[contracts/websocket-spec.md](../specs/001-develop-vibecode-a/contracts/websocket-spec.md)** - WebSocket protocol
 
+### Visual Architecture Diagrams
+
+Comprehensive visual documentation is available in `/workspace/docs/architecture/`:
+
+- **[System Architecture Overview](../docs/architecture/system-overview.md)** - Complete system diagram (Mermaid, PlantUML, ASCII)
+- **[Database ERD](../docs/architecture/database-erd.md)** - Entity relationship diagram (Mermaid, DBML, ASCII)
+- **[API Architecture Flow](../docs/architecture/api-flow.md)** - Request processing and middleware chain
+- **[WebSocket Flow](../docs/architecture/websocket-flow.md)** - Real-time communication architecture
+- **[Deployment Architecture](../docs/architecture/deployment.md)** - Kubernetes cluster and infrastructure
+- **[Environment Lifecycle](../docs/architecture/environment-lifecycle.md)** - State machine and flows
+- **[Authentication Flow](../docs/architecture/auth-flow.md)** - Auth/authz with JWT and OAuth
+- **[Architecture Index](../docs/architecture/README.md)** - Complete diagram catalog and viewing guide
+
 ## 🗃️ Core Entities
 
 ### 1. User

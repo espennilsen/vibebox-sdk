@@ -7,7 +7,8 @@ module.exports = {
   parserOptions: {
     ecmaVersion: 2022,
     sourceType: 'module',
-    project: './tsconfig.json',
+    project: './tsconfig.eslint.json',
+    tsconfigRootDir: __dirname,
   },
   plugins: ['@typescript-eslint', 'prettier'],
   extends: [
@@ -47,8 +48,7 @@ module.exports = {
     '.eslintrc.js',
     'dist',
     'node_modules',
-    'src/api/websocket/logStream.ts',
-    'src/api/websocket/terminal.ts',
-    'src/api/websocket/status.ts',
+    'coverage',
+    'src/types/**/*.d.ts',
   ],
 };

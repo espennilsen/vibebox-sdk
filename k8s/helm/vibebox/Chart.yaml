@@ -1,0 +1,23 @@
+apiVersion: v2
+name: vibebox
+description: A Helm chart for VibeBox - Development Environment Management Tool
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - development
+  - docker
+  - vscode
+  - tmux
+  - devtools
+home: https://github.com/yourusername/vibebox
+sources:
+  - https://github.com/yourusername/vibebox
+maintainers:
+  - name: VibeBox Team
+    email: team@vibebox.io
+icon: https://vibebox.io/icon.png
+dependencies: []
+annotations:
+  category: Developer Tools
+  licenses: MIT

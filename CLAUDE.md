@@ -33,7 +33,7 @@ Complete documentation is available in the `.claude/` directory:
   - Request/response examples
   - Error handling
 
-### Development
+### Development & Deployment
 - **[Development Workflow](./.claude/dev_workflow.md)** - PR process and CI/CD
   - Branch strategy and Git workflow
   - Test-Driven Development (TDD) guidelines
@@ -41,6 +41,23 @@ Complete documentation is available in the `.claude/` directory:
   - Coderabbit AI review integration
   - Auto-merge workflow
   - Deployment process
+
+- **[Secrets Management](./.claude/secrets_management.md)** - Production secrets management
+  - Multi-provider support (AWS, GCP, Azure, Vault, K8s)
+  - Secret rotation and migration
+  - Configuration with secret references
+  - Zero-downtime rotation strategies
+  - Best practices and troubleshooting
+
+- **[Kubernetes Deployment](./.claude/kubernetes.md)** - Production deployment guide
+  - Prerequisites and cluster requirements
+  - Installation methods (Helm, kubectl, scripts)
+  - Configuration and secrets management
+  - Scaling strategies (horizontal and vertical)
+  - Backup and restore procedures
+  - Security hardening
+  - Monitoring and observability
+  - Troubleshooting and disaster recovery
 
 ### Features & Guides
 - **[tmux Guide](./.claude/tmux.md)** - Session management
@@ -137,6 +154,16 @@ npm run db:studio        # Open Prisma Studio
 ---
 
 ## Recent Changes
+
+- **2025-10-01**: Production secrets management implementation
+  - Multi-provider secret manager (AWS, GCP, Azure, Vault, K8s)
+  - Automatic provider detection and failover
+  - Secret rotation scripts with zero-downtime support
+  - Configuration enhancement with secret reference resolution
+  - Kubernetes External Secrets Operator integration
+  - Migration tools from .env to secret managers
+  - Comprehensive secrets management documentation
+  - Unit tests for all secret manager components
 
 - **2025-10-01**: Security hardening and database configuration
   - Removed all hardcoded credentials from codebase

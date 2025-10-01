@@ -13,7 +13,7 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
 fi
 
 echo "🗑️  Stopping services..."
-docker-compose down -v
+docker compose down -v
 
 echo "🔄 Resetting database..."
 cd backend
@@ -21,6 +21,6 @@ npm run migrate:deploy
 cd ..
 
 echo "🚀 Starting services..."
-docker-compose up -d
+docker compose up -d
 
 echo "✅ Reset complete!"

@@ -1,0 +1,312 @@
+================================================================================
+                    VIBEBOX DATABASE SCHEMA (ERD)
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         USER & TEAM MANAGEMENT                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────┐
+│         users              │
+├────────────────────────────┤
+│ PK  id                     │ uuid
+│ UK  email                  │ varchar(255)
+│     password_hash          │ varchar(255) NULL
+│     display_name           │ varchar(100)
+│     avatar_url             │ varchar(500) NULL
+│     timezone               │ varchar(50) = 'UTC'
+│     locale                 │ varchar(10) = 'en-US'
+│     ssh_public_key         │ text NULL
+│     notification_settings  │ jsonb = '{}'
+│     created_at             │ timestamp
+│     updated_at             │ timestamp
+│     last_login_at          │ timestamp NULL
+└────────────────────────────┘
+         │
+         │ 1:N
+         ├───────────────────────────┐
+         │                           │
+         ▼                           ▼
+┌────────────────────────────┐  ┌────────────────────────────┐
+│      user_teams            │  │        teams               │
+├────────────────────────────┤  ├────────────────────────────┤
+│ PK  id                     │  │ PK  id                     │ uuid
+│ FK  user_id                ├─→│ UK  slug                   │ varchar(50)
+│ FK  team_id                │  │     name                   │ varchar(100)
+│     role                   │  │     description            │ text NULL
+│     joined_at              │  │     avatar_url             │ varchar(500) NULL
+└────────────────────────────┘  │     created_at             │ timestamp
+         △                       │     updated_at             │ timestamp
+         │                       └────────────────────────────┘
+         │ N:1                            │
+         └────────────────────────────────┘
+
+role ENUM: admin, developer, viewer
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         PROJECT MANAGEMENT                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                    ┌────────────────────────────┐
+         ┌─────────│        projects            │
+         │  XOR    ├────────────────────────────┤
+         │         │ PK  id                     │ uuid
+┌────────▼──┐      │     name                   │ varchar(100)
+│  users.id │      │     slug                   │ varchar(50)
+└───────────┘      │     description            │ text NULL
+         │         │ FK  owner_id               │ uuid NULL (XOR with team_id)
+         │  XOR    │ FK  team_id                │ uuid NULL (XOR with owner_id)
+┌────────▼──┐      │     is_archived            │ boolean = false
+│  teams.id │      │     created_at             │ timestamp
+└───────────┘      │     updated_at             │ timestamp
+                   └────────────────────────────┘
+                                │
+                                │ 1:N
+                                ▼
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      ENVIRONMENT MANAGEMENT                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                   ┌────────────────────────────┐
+                   │      environments          │
+                   ├────────────────────────────┤
+                   │ PK  id                     │ uuid
+                   │     name                   │ varchar(100)
+                   │     slug                   │ varchar(50)
+                   │     description            │ text NULL
+                   │ FK  project_id             │ uuid
+                   │ FK  creator_id             │ uuid (→ users.id)
+                   │     base_image             │ varchar(255)
+                   │     container_id           │ varchar(255) NULL
+                   │     status                 │ ENUM
+                   │     error_message          │ text NULL
+                   │     cpu_limit              │ decimal(4,2) = 2.0
+                   │     memory_limit           │ integer = 4096
+                   │     storage_limit          │ integer = 20480
+                   │     created_at             │ timestamp
+                   │     updated_at             │ timestamp
+                   │     started_at             │ timestamp NULL
+                   │     stopped_at             │ timestamp NULL
+                   └─────────────┬──────────────┘
+                                 │
+             ┌───────────────────┼───────────────────┬───────────────┐
+             │                   │                   │               │
+             ▼                   ▼                   ▼               ▼
+
+┌─────────────────────┐  ┌─────────────────────┐  ┌──────────────┐  ┌──────────────┐
+│ environment_ports   │  │ environment_variables│  │  sessions    │  │ log_entries  │
+├─────────────────────┤  ├─────────────────────┤  ├──────────────┤  ├──────────────┤
+│ PK  id              │  │ PK  id              │  │ PK  id       │  │ PK  id       │
+│ FK  environment_id  │  │ FK  environment_id  │  │ FK  env_id   │  │ FK  env_id   │
+│     container_port  │  │     key             │  │     type     │  │     timestamp│
+│     host_port       │  │     value           │  │     name     │  │     stream   │
+│     protocol        │  │     is_encrypted    │  │     status   │  │     message  │
+│     description     │  │     created_at      │  │     url      │  │     created  │
+└─────────────────────┘  │     updated_at      │  │     pid      │  └──────────────┘
+                         └─────────────────────┘  │     created  │
+                                                  │     last_act │
+                      ┌─────────────────────┐     │     idle_to  │
+                      │ environment_        │     │     term_at  │
+                      │     extensions      │     └──────────────┘
+                      ├─────────────────────┤
+                      │ PK  id              │
+                      │ FK  environment_id  │
+                      │ FK  extension_id    ├───┐
+                      │     status          │   │
+                      │     error_message   │   │
+                      │     installed_at    │   │
+                      │     created_at      │   │
+                      └─────────────────────┘   │
+                                                 │
+                                                 │ N:1
+                                                 ▼
+                                        ┌─────────────────────┐
+                                        │    extensions       │
+                                        ├─────────────────────┤
+                                        │ PK  id              │
+                                        │ UK  extension_id    │
+                                        │     name            │
+                                        │     version         │
+                                        │     description     │
+                                        │     publisher       │
+                                        │     icon_url        │
+                                        │     is_custom       │
+                                        │     download_url    │
+                                        │     created_at      │
+                                        │     updated_at      │
+                                        └─────────────────────┘
+
+status ENUM: stopped, starting, running, stopping, error
+protocol ENUM: tcp, udp
+session_type ENUM: vscode_server, tmux, shell
+session_status ENUM: starting, active, idle, terminated
+extension_status ENUM: pending, installing, installed, failed, uninstalling
+stream ENUM: stdout, stderr
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         KEY CONSTRAINTS                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+PRIMARY KEYS (All tables):
+  • id (uuid) - Auto-generated, clustered index
+
+UNIQUE CONSTRAINTS:
+  • users: email
+  • teams: slug
+  • user_teams: (user_id, team_id)
+  • projects: (slug, owner_id), (slug, team_id)
+  • environments: (project_id, slug)
+  • environment_ports: (environment_id, container_port)
+  • environment_variables: (environment_id, key)
+  • sessions: (environment_id, session_type, session_name)
+  • extensions: extension_id
+  • environment_extensions: (environment_id, extension_id)
+
+FOREIGN KEY CONSTRAINTS (ON DELETE CASCADE):
+  • user_teams.user_id → users.id
+  • user_teams.team_id → teams.id
+  • projects.owner_id → users.id (nullable, XOR with team_id)
+  • projects.team_id → teams.id (nullable, XOR with owner_id)
+  • environments.project_id → projects.id
+  • environments.creator_id → users.id
+  • environment_ports.environment_id → environments.id
+  • environment_variables.environment_id → environments.id
+  • sessions.environment_id → environments.id
+  • environment_extensions.environment_id → environments.id
+  • environment_extensions.extension_id → extensions.id
+  • log_entries.environment_id → environments.id
+
+XOR CONSTRAINT (Application-level):
+  • projects: Exactly ONE of (owner_id, team_id) must be NOT NULL
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         INDEXES FOR PERFORMANCE                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+users:
+  • UNIQUE INDEX on email
+  • INDEX on created_at (analytics queries)
+
+teams:
+  • UNIQUE INDEX on slug
+  • INDEX on name (search queries)
+
+user_teams:
+  • UNIQUE INDEX on (user_id, team_id)
+  • INDEX on team_id
+
+projects:
+  • UNIQUE INDEX on (slug, owner_id)
+  • UNIQUE INDEX on (slug, team_id)
+  • INDEX on owner_id
+  • INDEX on team_id
+
+environments:
+  • UNIQUE INDEX on (project_id, slug)
+  • INDEX on project_id
+  • INDEX on creator_id
+  • INDEX on status (dashboard filtering)
+  • INDEX on container_id (Docker lookups)
+
+environment_ports:
+  • UNIQUE INDEX on (environment_id, container_port)
+  • INDEX on environment_id
+  • INDEX on host_port (port allocation)
+
+environment_variables:
+  • UNIQUE INDEX on (environment_id, key)
+
+sessions:
+  • UNIQUE INDEX on (environment_id, session_type, session_name)
+  • INDEX on environment_id
+  • INDEX on status
+  • INDEX on last_activity_at (idle timeout cleanup)
+
+extensions:
+  • UNIQUE INDEX on extension_id
+  • INDEX on publisher
+  • INDEX on is_custom
+
+environment_extensions:
+  • UNIQUE INDEX on (environment_id, extension_id)
+  • INDEX on status
+
+log_entries:
+  • COMPOSITE INDEX on (environment_id, timestamp DESC) - log retrieval
+  • INDEX on created_at (retention cleanup)
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       CASCADE DELETE BEHAVIOR                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+DELETE User:
+  ✓ user_teams (memberships removed)
+  ✓ projects WHERE owner_id (personal projects deleted)
+    ✓ environments (all environments in personal projects deleted)
+      ✓ sessions, ports, variables, extensions, logs
+
+DELETE Team:
+  ✓ user_teams (all memberships removed)
+  ✓ projects WHERE team_id (team projects deleted)
+    ✓ environments (all environments in team projects deleted)
+      ✓ sessions, ports, variables, extensions, logs
+
+DELETE Project:
+  ✓ environments (all environments deleted)
+    ✓ sessions, ports, variables, extensions, logs
+
+DELETE Environment:
+  ✓ sessions (all sessions terminated)
+  ✓ environment_ports (ports released)
+  ✓ environment_variables (variables removed)
+  ✓ environment_extensions (extensions uninstalled)
+  ✓ log_entries (logs deleted)
+
+DELETE Extension:
+  ✓ environment_extensions (removed from all environments)
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       DATA VALIDATION RULES                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+users:
+  • email: Valid email format
+  • display_name: 1-100 characters
+  • ssh_public_key: Valid SSH public key format (if provided)
+
+teams:
+  • name: 1-100 characters
+  • slug: Lowercase alphanumeric + hyphens, 3-50 characters
+
+projects:
+  • XOR: Exactly one of (owner_id, team_id) must be NOT NULL
+  • slug: Unique per owner (either user or team)
+
+environments:
+  • cpu_limit: > 0
+  • memory_limit: > 0 (MB)
+  • storage_limit: > 0 (MB)
+  • status: Valid state transitions only
+
+environment_ports:
+  • container_port: 1-65535
+  • host_port: 1024-65535 or NULL (auto-assign)
+
+environment_variables:
+  • key: Uppercase alphanumeric + underscore only
+  • value: Encrypted if is_encrypted=true (AES-256)
+
+sessions:
+  • idle_timeout_minutes: > 0
+
+extensions:
+  • extension_id: publisher.name format
+  • version: Semver format
+
+log_entries:
+  • Retention: 7 days OR 20MB per environment (FIFO)
+
+================================================================================
+                         TOTAL: 11 TABLES, 8 ENUMS
+================================================================================

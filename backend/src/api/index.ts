@@ -12,7 +12,9 @@ import { environmentRoutes } from './routes/environment.routes';
 import { sessionRoutes } from './routes/session.routes';
 import { extensionRoutes } from './routes/extension.routes';
 import { logRoutes } from './routes/log.routes';
+import { healthRoutes } from './routes/health.routes';
 import { registerWebSocketRoutes } from './websocket';
+import { metricsPlugin } from '../lib/metrics';
 
 /**
  * Register all API routes (REST and WebSocket)
@@ -26,14 +28,11 @@ import { registerWebSocketRoutes } from './websocket';
  * ```
  */
 export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
-  // Health check endpoint (no authentication required)
-  fastify.get('/health', async () => {
-    return {
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-    };
-  });
+  // Register metrics plugin for automatic HTTP metrics collection
+  await fastify.register(metricsPlugin);
+
+  // Health check routes (no authentication required)
+  await fastify.register(healthRoutes, { prefix: '/health' });
 
   // API v1 routes
   await fastify.register(
@@ -79,5 +78,6 @@ export {
   sessionRoutes,
   extensionRoutes,
   logRoutes,
+  healthRoutes,
   registerWebSocketRoutes,
 };

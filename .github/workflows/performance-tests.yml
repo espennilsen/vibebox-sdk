@@ -1,0 +1,244 @@
+name: Performance Tests
+
+on:
+  # Run on schedule (daily at 2 AM UTC)
+  schedule:
+    - cron: '0 2 * * *'
+
+  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: 'Test scenario to run'
+        required: true
+        default: 'smoke'
+        type: choice
+        options:
+          - smoke
+          - load
+          - stress
+          - spike
+
+  # Run on specific branches when performance-related changes are made
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'backend/src/api/**'
+      - 'backend/src/services/**'
+      - 'tests/performance/**'
+
+jobs:
+  performance-test:
+    name: Run Performance Tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        scenario: [smoke]  # Default to smoke for PRs
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Verify k6 installation
+        run: k6 version
+
+      - name: Setup PostgreSQL
+        run: |
+          docker compose up -d postgres
+          sleep 10
+
+      - name: Run database migrations
+        working-directory: backend
+        run: npm run migrate
+
+      - name: Start VibeBox backend
+        working-directory: backend
+        run: |
+          npm run build
+          npm start &
+          sleep 20
+
+      - name: Wait for API to be ready
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:3000/health 2>/dev/null; do sleep 2; done' || echo "API health check timed out"
+
+      - name: Run performance tests
+        env:
+          BASE_URL: http://localhost:3000
+          SCENARIO: ${{ github.event.inputs.scenario || 'smoke' }}
+          TEST_USERS: 10
+        working-directory: tests/performance
+        run: |
+          chmod +x scripts/run-all.sh
+          ./scripts/run-all.sh $SCENARIO
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-results-${{ github.event.inputs.scenario || 'smoke' }}-${{ github.run_number }}
+          path: tests/performance/results/
+          retention-days: 30
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-report-${{ github.event.inputs.scenario || 'smoke' }}-${{ github.run_number }}
+          path: tests/performance/results/report_*.md
+          retention-days: 90
+
+      - name: Check performance thresholds
+        if: always()
+        run: |
+          # Extract test results and check if any thresholds failed
+          if grep -q "FAIL" tests/performance/results/report_*.md 2>/dev/null; then
+            echo "::error::Performance thresholds violated. Check the test report."
+            exit 1
+          fi
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const reportPath = require('child_process')
+              .execSync('ls -t tests/performance/results/report_*.md | head -1')
+              .toString()
+              .trim();
+
+            let reportContent = 'Performance test report not found.';
+            if (fs.existsSync(reportPath)) {
+              reportContent = fs.readFileSync(reportPath, 'utf8');
+            }
+
+            const body = `## Performance Test Results\n\n${reportContent}\n\n---\n*Automated performance test run*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body.substring(0, 65536)  // GitHub comment size limit
+            });
+
+      - name: Stop services
+        if: always()
+        run: |
+          docker compose down
+          pkill -f "npm start" || true
+
+  # Separate job for scheduled comprehensive tests
+  scheduled-comprehensive:
+    name: Comprehensive Performance Tests (Scheduled)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+
+    strategy:
+      matrix:
+        scenario: [smoke, load]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6 jq
+
+      - name: Setup PostgreSQL
+        run: |
+          docker compose up -d postgres
+          sleep 10
+
+      - name: Run database migrations
+        working-directory: backend
+        run: npm run migrate
+
+      - name: Start VibeBox backend
+        working-directory: backend
+        run: |
+          npm run build
+          npm start &
+          sleep 20
+
+      - name: Wait for API to be ready
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:3000/health 2>/dev/null; do sleep 2; done'
+
+      - name: Run performance tests - ${{ matrix.scenario }}
+        env:
+          BASE_URL: http://localhost:3000
+          SCENARIO: ${{ matrix.scenario }}
+          TEST_USERS: 15
+        working-directory: tests/performance
+        run: |
+          chmod +x scripts/run-all.sh
+          ./scripts/run-all.sh $SCENARIO
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: scheduled-results-${{ matrix.scenario }}-${{ github.run_number }}
+          path: tests/performance/results/
+          retention-days: 90
+
+      - name: Send Slack notification on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        with:
+          payload: |
+            {
+              "text": "⚠️ Performance test failed: ${{ matrix.scenario }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Performance Test Failed*\n*Scenario:* ${{ matrix.scenario }}\n*Run:* ${{ github.run_number }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                  }
+                }
+              ]
+            }
+
+      - name: Stop services
+        if: always()
+        run: |
+          docker compose down
+          pkill -f "npm start" || true

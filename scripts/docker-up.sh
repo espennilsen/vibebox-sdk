@@ -15,7 +15,7 @@ fi
 
 # Start services
 echo "🐳 Starting Docker Compose services..."
-docker-compose up -d
+docker compose up -d
 
 echo "✅ Services started successfully!"
 echo ""
@@ -24,5 +24,5 @@ echo "  - Frontend: http://localhost:5173"
 echo "  - Backend API: http://localhost:3000"
 echo "  - API Docs: http://localhost:3000/api/v1/docs"
 echo ""
-echo "📝 View logs with: docker-compose logs -f"
+echo "📝 View logs with: docker compose logs -f"
 echo "🛑 Stop services with: npm run docker:down"

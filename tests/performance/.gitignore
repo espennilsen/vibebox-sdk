@@ -1,0 +1,28 @@
+# k6 Results
+results/*.json
+results/*.html
+results/*.csv
+
+# Keep reports for history (can be adjusted based on preference)
+# results/*.md
+
+# Temporary files
+*.tmp
+*.log
+
+# Node modules (if any dependencies added)
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Keep directory structure
+!results/.gitkeep

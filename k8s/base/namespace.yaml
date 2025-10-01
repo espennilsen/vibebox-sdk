@@ -1,0 +1,9 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vibebox
+  labels:
+    app.kubernetes.io/name: vibebox
+    app.kubernetes.io/part-of: vibebox
+    app.kubernetes.io/managed-by: kubectl

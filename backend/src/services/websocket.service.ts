@@ -150,6 +150,7 @@ export class WebSocketService {
       client.lastActivity = new Date();
     });
 
+    // eslint-disable-next-line no-console
     console.log(`WebSocket client registered: ${clientId} (user: ${userId})`);
 
     return client;
@@ -188,6 +189,7 @@ export class WebSocketService {
     // Remove from clients
     this.clients.delete(clientId);
 
+    // eslint-disable-next-line no-console
     console.log(`WebSocket client unregistered: ${clientId}`);
   }
 
@@ -222,6 +224,7 @@ export class WebSocketService {
     }
     this.environmentSubscriptions.get(environmentId)!.add(clientId);
 
+    // eslint-disable-next-line no-console
     console.log(`Client ${clientId} subscribed to environment ${environmentId}`);
   }
 
@@ -252,6 +255,7 @@ export class WebSocketService {
       }
     }
 
+    // eslint-disable-next-line no-console
     console.log(`Client ${clientId} unsubscribed from environment ${environmentId}`);
   }
 
@@ -286,6 +290,7 @@ export class WebSocketService {
     }
     this.sessionSubscriptions.get(sessionId)!.add(clientId);
 
+    // eslint-disable-next-line no-console
     console.log(`Client ${clientId} subscribed to session ${sessionId}`);
   }
 
@@ -316,6 +321,7 @@ export class WebSocketService {
       }
     }
 
+    // eslint-disable-next-line no-console
     console.log(`Client ${clientId} unsubscribed from session ${sessionId}`);
   }
 
@@ -597,6 +603,7 @@ export class WebSocketService {
       this.unregisterClient(clientId);
     }
 
+    // eslint-disable-next-line no-console
     console.log('All WebSocket connections closed');
   }
 }

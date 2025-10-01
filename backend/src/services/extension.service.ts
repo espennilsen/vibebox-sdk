@@ -86,6 +86,7 @@ export class ExtensionService {
    * const results = await extensionService.searchExtensions('typescript', 10);
    * ```
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async searchExtensions(query: string, limit: number = 10): Promise<ExtensionSearchResult[]> {
     // In production, this would query the VS Code marketplace API
     // For now, return mock data that demonstrates the structure
@@ -589,6 +590,7 @@ export class ExtensionService {
    *
    * @private
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   private async checkEnvironmentAccess(project: any, userId: string): Promise<void> {
     const hasAccess =
       project.ownerId === userId ||

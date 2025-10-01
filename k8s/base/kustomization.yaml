@@ -1,0 +1,50 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Namespace for all resources
+namespace: vibebox
+
+# Common labels applied to all resources
+commonLabels:
+  app.kubernetes.io/name: vibebox
+  app.kubernetes.io/managed-by: kustomize
+
+# Resources to deploy
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  # - secrets.yaml  # Uncomment after creating from secrets.yaml.example
+  - pvc.yaml
+  - rbac.yaml
+  - postgresql-statefulset.yaml
+  - postgresql-service.yaml
+  - docker-dind-deployment.yaml
+  - backend-deployment.yaml
+  - backend-service.yaml
+  - frontend-deployment.yaml
+  - frontend-service.yaml
+  - ingress.yaml
+  - hpa.yaml
+  - network-policies.yaml
+
+# Images to use (override with kustomize edit set image)
+images:
+  - name: vibebox/backend
+    newName: your-registry.io/vibebox/backend
+    newTag: latest
+  - name: vibebox/frontend
+    newName: your-registry.io/vibebox/frontend
+    newTag: latest
+
+# ConfigMap generator (optional - use for dynamic config)
+# configMapGenerator:
+#   - name: vibebox-config
+#     literals:
+#       - NODE_ENV=production
+#       - LOG_LEVEL=info
+
+# Secret generator (optional - use for runtime secrets)
+# secretGenerator:
+#   - name: vibebox-secrets
+#     envs:
+#       - secrets.env

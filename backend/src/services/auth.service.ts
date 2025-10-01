@@ -6,8 +6,11 @@
 import { PrismaClient } from '@prisma/client';
 import type { User } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import jwt, { type SignOptions } from 'jsonwebtoken';
+import type { StringValue } from 'ms';
 import { getPrismaClient } from '@/lib/db';
 import { ConflictError, UnauthorizedError, ValidationError, NotFoundError } from '@/lib/errors';
+import { config } from '@/lib/config';
 
 /**
  * JWT token payload structure
@@ -20,11 +23,18 @@ export interface JWTPayload {
 }
 
 /**
+ * Authentication token structure
+ */
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+}
+
+/**
  * Authentication response structure
  */
 export interface AuthResponse {
-  accessToken: string;
-  refreshToken: string;
+  tokens: AuthTokens;
   user: UserDTO;
 }
 
@@ -151,8 +161,10 @@ export class AuthService {
     const refreshToken = this.generateRefreshToken(user);
 
     return {
-      accessToken,
-      refreshToken,
+      tokens: {
+        accessToken,
+        refreshToken,
+      },
       user: this.toUserDTO(user),
     };
   }
@@ -204,8 +216,10 @@ export class AuthService {
     const refreshToken = this.generateRefreshToken(user);
 
     return {
-      accessToken,
-      refreshToken,
+      tokens: {
+        accessToken,
+        refreshToken,
+      },
       user: this.toUserDTO(user),
     };
   }
@@ -213,22 +227,23 @@ export class AuthService {
   /**
    * Refresh access token using refresh token
    *
-   * Validates refresh token and issues new access token
+   * Validates refresh token and issues new access and refresh tokens
    *
    * @param refreshToken - Valid refresh token
-   * @returns New access token
+   * @returns New tokens object with access and refresh tokens
    * @throws {UnauthorizedError} If refresh token is invalid or expired
    *
    * @example
    * ```typescript
    * const authService = new AuthService();
-   * const newToken = await authService.refreshToken('old-refresh-token');
+   * const result = await authService.refreshToken('old-refresh-token');
+   * console.log(result.tokens.accessToken);
    * ```
    */
-  async refreshToken(refreshToken: string): Promise<string> {
+  async refreshToken(refreshToken: string): Promise<{ tokens: AuthTokens }> {
     try {
-      // Validate and decode refresh token
-      const payload = this.verifyToken(refreshToken);
+      // Validate and decode refresh token (using refresh secret)
+      const payload = this.verifyToken(refreshToken, true);
 
       // Find user
       const user = await this.prisma.user.findUnique({
@@ -239,9 +254,20 @@ export class AuthService {
         throw new UnauthorizedError('User not found');
       }
 
-      // Generate new access token
-      return this.generateAccessToken(user);
-    } catch {
+      // Generate new tokens (both access and refresh for better security)
+      const accessToken = this.generateAccessToken(user);
+      const newRefreshToken = this.generateRefreshToken(user);
+
+      return {
+        tokens: {
+          accessToken,
+          refreshToken: newRefreshToken,
+        },
+      };
+    } catch (error) {
+      if (error instanceof UnauthorizedError) {
+        throw error;
+      }
       throw new UnauthorizedError('Invalid or expired refresh token');
     }
   }
@@ -303,8 +329,10 @@ export class AuthService {
     const refreshToken = this.generateRefreshToken(user);
 
     return {
-      accessToken,
-      refreshToken,
+      tokens: {
+        accessToken,
+        refreshToken,
+      },
       user: this.toUserDTO(user),
     };
   }
@@ -313,6 +341,7 @@ export class AuthService {
    * Verify JWT token and extract payload
    *
    * @param token - JWT token to verify
+   * @param isRefreshToken - Whether this is a refresh token (uses refresh secret)
    * @returns Decoded JWT payload
    * @throws {UnauthorizedError} If token is invalid or expired
    *
@@ -323,32 +352,34 @@ export class AuthService {
    * console.log(payload.userId);
    * ```
    */
-  verifyToken(token: string): JWTPayload {
-    // Note: In production, this should use a proper JWT library like jsonwebtoken
-    // For now, we'll implement a basic version that can be replaced with Fastify JWT
+  verifyToken(token: string, isRefreshToken = false): JWTPayload {
     try {
       // Remove 'Bearer ' prefix if present
       const cleanToken = token.replace(/^Bearer\s+/i, '');
 
-      // Decode JWT (simplified - in production use jsonwebtoken)
-      const parts = cleanToken.split('.');
-      if (parts.length !== 3) {
-        throw new UnauthorizedError('Invalid token format');
-      }
+      // Select the appropriate secret
+      const secret = isRefreshToken ? config.jwt.refreshSecret : config.jwt.secret;
 
-      const payload = JSON.parse(Buffer.from(parts[1]!, 'base64url').toString()) as JWTPayload;
+      // Verify and decode JWT
+      const payload = jwt.verify(cleanToken, secret) as JWTPayload;
 
-      // Check expiration
-      if (payload.exp && Date.now() >= payload.exp * 1000) {
-        throw new UnauthorizedError('Token expired');
+      // Validate payload structure
+      if (!payload.userId || !payload.email) {
+        throw new UnauthorizedError('Invalid token payload');
       }
 
       return payload;
     } catch (error) {
+      if (error instanceof jwt.JsonWebTokenError) {
+        throw new UnauthorizedError('Invalid token');
+      }
+      if (error instanceof jwt.TokenExpiredError) {
+        throw new UnauthorizedError('Token expired');
+      }
       if (error instanceof UnauthorizedError) {
         throw error;
       }
-      throw new UnauthorizedError('Invalid token');
+      throw new UnauthorizedError('Token verification failed');
     }
   }
 
@@ -385,20 +416,16 @@ export class AuthService {
    * @returns JWT access token
    */
   private generateAccessToken(user: User): string {
-    // In production, use Fastify JWT or jsonwebtoken library
     const payload: JWTPayload = {
       userId: user.id,
       email: user.email,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 15 * 60, // 15 minutes
     };
 
-    // Simplified JWT generation (replace with proper library in production)
-    const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-    const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
-    const signature = 'mock-signature'; // Replace with actual HMAC signature
-
-    return `${header}.${body}.${signature}`;
+    const options: SignOptions = {
+      expiresIn: config.jwt.expiresIn as StringValue,
+      algorithm: 'HS256',
+    };
+    return jwt.sign(payload, config.jwt.secret, options);
   }
 
   /**
@@ -409,20 +436,16 @@ export class AuthService {
    * @returns JWT refresh token
    */
   private generateRefreshToken(user: User): string {
-    // In production, use Fastify JWT or jsonwebtoken library
     const payload: JWTPayload = {
       userId: user.id,
       email: user.email,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60, // 7 days
     };
 
-    // Simplified JWT generation (replace with proper library in production)
-    const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-    const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
-    const signature = 'mock-signature'; // Replace with actual HMAC signature
-
-    return `${header}.${body}.${signature}`;
+    const options: SignOptions = {
+      expiresIn: config.jwt.refreshExpiresIn as StringValue,
+      algorithm: 'HS256',
+    };
+    return jwt.sign(payload, config.jwt.refreshSecret, options);
   }
 
   /**

@@ -1,0 +1,242 @@
+---
+# NetworkPolicy for Backend
+# Restricts traffic to only what's necessary
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vibebox-backend-netpol
+  namespace: vibebox
+  labels:
+    app.kubernetes.io/name: vibebox
+    app.kubernetes.io/component: backend
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: vibebox
+      app.kubernetes.io/component: backend
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic from frontend
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vibebox
+              app.kubernetes.io/component: frontend
+      ports:
+        - protocol: TCP
+          port: 3000
+
+    # Allow traffic from ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 3000
+
+  egress:
+    # Allow DNS
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+
+    # Allow PostgreSQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vibebox
+              app.kubernetes.io/component: database
+      ports:
+        - protocol: TCP
+          port: 5432
+
+    # Allow Docker-in-Docker
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vibebox
+              app.kubernetes.io/component: docker-dind
+      ports:
+        - protocol: TCP
+          port: 2375
+
+    # Allow HTTPS for external APIs (GitHub, Google OAuth, etc.)
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+
+    # Allow HTTP for external APIs
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 80
+
+---
+# NetworkPolicy for Frontend
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vibebox-frontend-netpol
+  namespace: vibebox
+  labels:
+    app.kubernetes.io/name: vibebox
+    app.kubernetes.io/component: frontend
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: vibebox
+      app.kubernetes.io/component: frontend
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic from ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
+
+    # Allow traffic from anywhere (public-facing)
+    - ports:
+        - protocol: TCP
+          port: 8080
+
+  egress:
+    # Allow DNS
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+
+    # Allow backend API
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vibebox
+              app.kubernetes.io/component: backend
+      ports:
+        - protocol: TCP
+          port: 3000
+
+---
+# NetworkPolicy for PostgreSQL
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vibebox-postgres-netpol
+  namespace: vibebox
+  labels:
+    app.kubernetes.io/name: vibebox
+    app.kubernetes.io/component: database
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: vibebox
+      app.kubernetes.io/component: database
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Only allow traffic from backend
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vibebox
+              app.kubernetes.io/component: backend
+      ports:
+        - protocol: TCP
+          port: 5432
+
+  egress:
+    # Allow DNS
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+# NetworkPolicy for Docker-in-Docker
+# IMPORTANT: DinD needs broader egress for pulling images
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vibebox-docker-dind-netpol
+  namespace: vibebox
+  labels:
+    app.kubernetes.io/name: vibebox
+    app.kubernetes.io/component: docker-dind
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: vibebox
+      app.kubernetes.io/component: docker-dind
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Only allow traffic from backend
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vibebox
+              app.kubernetes.io/component: backend
+      ports:
+        - protocol: TCP
+          port: 2375
+
+  egress:
+    # Allow DNS
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+
+    # Allow all egress for Docker image pulls and container networking
+    # This is necessary for DinD to function properly
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 80
+
+---
+# Default deny all policy (optional, for maximum security)
+# Uncomment if you want to deny all traffic by default
+# apiVersion: networking.k8s.io/v1
+# kind: NetworkPolicy
+# metadata:
+#   name: vibebox-default-deny-all
+#   namespace: vibebox
+# spec:
+#   podSelector: {}
+#   policyTypes:
+#     - Ingress
+#     - Egress
