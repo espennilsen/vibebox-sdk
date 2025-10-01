@@ -519,23 +519,6 @@ CI automatically runs:
 - Static code analysis
 - Secret detection
 
-## 📈 Performance Monitoring
-
-### Performance Requirements
-
-From specifications:
-- API response times: <1s
-- Environment startup: <2s
-- Dashboard load: <2s
-- Log streaming latency: <100ms
-
-### Performance Tests
-
-```bash
-# Run performance tests
-npm run test:performance --workspace=backend
-```
-
 ## 🎓 Best Practices
 
 ### Code Style

@@ -293,10 +293,9 @@ Note:   Require PostgreSQL connection to execute
 
 ### For Future Enhancement
 1. **E2E Tests:** Add full end-to-end authentication flow tests
-2. **Performance Tests:** Test token generation under load
-3. **Security Audit:** Conduct penetration testing on auth endpoints
-4. **Rate Limiting Tests:** Verify rate limits on auth endpoints
-5. **Token Rotation:** Test refresh token rotation strategies
+2. **Security Audit:** Conduct penetration testing on auth endpoints
+3. **Rate Limiting Tests:** Verify rate limits on auth endpoints
+4. **Token Rotation:** Test refresh token rotation strategies
 
 ### Best Practices Followed
 - ✅ Tests are isolated and deterministic

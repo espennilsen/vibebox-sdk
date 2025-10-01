@@ -418,7 +418,6 @@ The /tasks command will generate a comprehensive, dependency-ordered task list f
 
 **Completed Enhancements (2025-10-01)**:
 - ✅ E2E test coverage with Playwright (auth, projects, environments)
-- ✅ Performance and load testing suite (k6 with 5 scenarios)
 - ✅ Production monitoring (Prometheus + Grafana with 3 dashboards)
 - ✅ Secrets management (multi-provider with rotation)
 - ✅ Kubernetes deployment (complete manifests + Helm)
