@@ -1,18 +1,16 @@
 /**
- * Frontend Entry Point - Task T003
- * React application entry point (placeholder)
+ * Frontend Entry Point - VibeBox Frontend
+ * React application entry point
  */
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { App } from './App';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Root element not found');
 
 ReactDOM.createRoot(root).render(
   <React.StrictMode>
-    <div>
-      <h1>VibeBox</h1>
-      <p>Frontend placeholder - implementation pending</p>
-    </div>
+    <App />
   </React.StrictMode>
 );

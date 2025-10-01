@@ -4,6 +4,13 @@
  */
 import { beforeAll, afterAll, afterEach } from 'vitest';
 import { getPrismaClient, disconnectDb } from '../src/lib/db';
+import { config } from 'dotenv';
+import { resolve } from 'path';
+
+// Load environment variables from .env files
+// Try backend/.env first, then fall back to root .env
+config({ path: resolve(__dirname, '../.env') });
+config({ path: resolve(__dirname, '../../.env') });
 
 // Set test environment
 process.env.NODE_ENV = 'test';

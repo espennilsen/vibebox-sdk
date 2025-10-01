@@ -7,6 +7,20 @@ import supertest from 'supertest';
 
 /**
  * Validates that a response matches the expected status code
+ *
+ * Throws a descriptive error if the status code doesn't match, including
+ * the actual status and response body for debugging.
+ *
+ * @param response - Supertest response object
+ * @param expectedStatus - Expected HTTP status code
+ * @throws {Error} If status code doesn't match expected value
+ * @public
+ *
+ * @example
+ * ```typescript
+ * const response = await request(app).get('/api/users');
+ * expectStatus(response, 200);
+ * ```
  */
 export function expectStatus(response: supertest.Response, expectedStatus: number): void {
   if (response.status !== expectedStatus) {
@@ -18,6 +32,19 @@ export function expectStatus(response: supertest.Response, expectedStatus: numbe
 
 /**
  * Validates that response body contains required fields
+ *
+ * Checks that all required fields are present in the object.
+ * Throws a descriptive error listing missing fields.
+ *
+ * @param obj - Object to validate (typically response body)
+ * @param requiredFields - Array of field names that must be present
+ * @throws {Error} If any required fields are missing
+ * @public
+ *
+ * @example
+ * ```typescript
+ * expectFields(response.body, ['id', 'email', 'createdAt']);
+ * ```
  */
 export function expectFields(obj: any, requiredFields: string[]): void {
   const missing = requiredFields.filter(field => !(field in obj));
@@ -27,7 +54,19 @@ export function expectFields(obj: any, requiredFields: string[]): void {
 }
 
 /**
- * Validates UUID format
+ * Validates UUID format (version 4)
+ *
+ * Checks if a string matches the UUID v4 format:
+ * xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+ *
+ * @param uuid - String to validate
+ * @returns True if valid UUID format, false otherwise
+ * @public
+ *
+ * @example
+ * ```typescript
+ * expect(isValidUUID(user.id)).toBe(true);
+ * ```
  */
 export function isValidUUID(uuid: string): boolean {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -36,6 +75,18 @@ export function isValidUUID(uuid: string): boolean {
 
 /**
  * Validates ISO 8601 date format
+ *
+ * Checks if a string matches ISO 8601 format:
+ * YYYY-MM-DDTHH:mm:ss.sssZ or YYYY-MM-DDTHH:mm:ss
+ *
+ * @param date - String to validate
+ * @returns True if valid ISO 8601 format, false otherwise
+ * @public
+ *
+ * @example
+ * ```typescript
+ * expect(isValidISODate(user.createdAt)).toBe(true);
+ * ```
  */
 export function isValidISODate(date: string): boolean {
   const isoRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?$/;
@@ -44,6 +95,18 @@ export function isValidISODate(date: string): boolean {
 
 /**
  * Validates email format
+ *
+ * Checks if a string matches basic email format:
+ * localpart@domain.tld
+ *
+ * @param email - String to validate
+ * @returns True if valid email format, false otherwise
+ * @public
+ *
+ * @example
+ * ```typescript
+ * expect(isValidEmail(user.email)).toBe(true);
+ * ```
  */
 export function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -51,7 +114,24 @@ export function isValidEmail(email: string): boolean {
 }
 
 /**
- * Validates slug format (lowercase alphanumeric with hyphens, 3-50 chars)
+ * Validates slug format
+ *
+ * Checks if a string is a valid URL slug:
+ * - Lowercase letters (a-z)
+ * - Numbers (0-9)
+ * - Hyphens (-)
+ * - Length: 3-50 characters
+ *
+ * @param slug - String to validate
+ * @returns True if valid slug format, false otherwise
+ * @public
+ *
+ * @example
+ * ```typescript
+ * expect(isValidSlug(team.slug)).toBe(true);
+ * // Valid: 'my-team-name', 'project-123'
+ * // Invalid: 'My Team', 'ab', 'with_underscores'
+ * ```
  */
 export function isValidSlug(slug: string): boolean {
   const slugRegex = /^[a-z0-9-]{3,50}$/;
@@ -59,18 +139,53 @@ export function isValidSlug(slug: string): boolean {
 }
 
 /**
- * Creates a mock JWT token for testing (will fail authentication)
+ * Creates a mock JWT token for testing
+ *
+ * Returns a static JWT token that will fail authentication.
+ * Use this to test endpoints that require authentication but should reject invalid tokens.
+ *
+ * @returns Mock JWT token string with 'Bearer ' prefix
+ * @public
+ *
+ * @example
+ * ```typescript
+ * const response = await request(app)
+ *   .get('/api/users')
+ *   .set('Authorization', createMockToken());
+ * expectStatus(response, 401);
+ * ```
  */
 export function createMockToken(): string {
   return 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IlRlc3QgVXNlciIsImlhdCI6MTUxNjIzOTAyMn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
 }
 
 /**
- * Validates OpenAPI schema compliance for common response structures
+ * Schema validators for OpenAPI contract testing
+ *
+ * Collection of validator functions that check response bodies against
+ * expected schemas defined in the OpenAPI specification.
+ * Each validator checks field presence, types, and format constraints.
+ *
+ * @public
+ *
+ * @example
+ * ```typescript
+ * const response = await request(app).post('/api/auth/register').send(userData);
+ * SchemaValidators.validateAuthResponse(response.body);
+ * ```
  */
 export namespace SchemaValidators {
   /**
    * Validates AuthResponse schema
+   *
+   * Checks that the authentication response contains:
+   * - accessToken (string)
+   * - refreshToken (string)
+   * - user (valid User object)
+   *
+   * @param body - Response body to validate
+   * @throws {Error} If schema validation fails
+   * @public
    */
   export function validateAuthResponse(body: any): void {
     expectFields(body, ['accessToken', 'refreshToken', 'user']);
@@ -81,6 +196,12 @@ export namespace SchemaValidators {
 
   /**
    * Validates User schema
+   *
+   * Checks required fields: id (UUID), email, displayName, createdAt (ISO date)
+   *
+   * @param user - User object to validate
+   * @throws {Error} If schema validation fails
+   * @public
    */
   export function validateUser(user: any): void {
     expectFields(user, ['id', 'email', 'displayName', 'createdAt']);
@@ -92,6 +213,12 @@ export namespace SchemaValidators {
 
   /**
    * Validates Team schema
+   *
+   * Checks required fields: id (UUID), name, slug, createdAt (ISO date)
+   *
+   * @param team - Team object to validate
+   * @throws {Error} If schema validation fails
+   * @public
    */
   export function validateTeam(team: any): void {
     expectFields(team, ['id', 'name', 'slug', 'createdAt']);
@@ -103,6 +230,12 @@ export namespace SchemaValidators {
 
   /**
    * Validates TeamMember schema
+   *
+   * Checks required fields: user (User object), role (admin/developer/viewer), joinedAt (ISO date)
+   *
+   * @param member - TeamMember object to validate
+   * @throws {Error} If schema validation fails
+   * @public
    */
   export function validateTeamMember(member: any): void {
     expectFields(member, ['user', 'role', 'joinedAt']);
@@ -113,6 +246,12 @@ export namespace SchemaValidators {
 
   /**
    * Validates Project schema
+   *
+   * Checks required fields: id (UUID), name, slug, createdAt (ISO date)
+   *
+   * @param project - Project object to validate
+   * @throws {Error} If schema validation fails
+   * @public
    */
   export function validateProject(project: any): void {
     expectFields(project, ['id', 'name', 'slug', 'createdAt']);
@@ -124,6 +263,12 @@ export namespace SchemaValidators {
 
   /**
    * Validates Environment schema
+   *
+   * Checks required fields: id (UUID), name, slug, projectId (UUID), baseImage, status, createdAt (ISO date)
+   *
+   * @param env - Environment object to validate
+   * @throws {Error} If schema validation fails
+   * @public
    */
   export function validateEnvironment(env: any): void {
     expectFields(env, ['id', 'name', 'slug', 'projectId', 'baseImage', 'status', 'createdAt']);
@@ -138,6 +283,12 @@ export namespace SchemaValidators {
 
   /**
    * Validates Session schema
+   *
+   * Checks required fields: id (UUID), environmentId (UUID), sessionType, sessionName, status, createdAt (ISO date)
+   *
+   * @param session - Session object to validate
+   * @throws {Error} If schema validation fails
+   * @public
    */
   export function validateSession(session: any): void {
     expectFields(session, ['id', 'environmentId', 'sessionType', 'sessionName', 'status', 'createdAt']);
@@ -151,6 +302,12 @@ export namespace SchemaValidators {
 
   /**
    * Validates Extension schema
+   *
+   * Checks required fields: id (UUID), extensionId, name, version, publisher
+   *
+   * @param ext - Extension object to validate
+   * @throws {Error} If schema validation fails
+   * @public
    */
   export function validateExtension(ext: any): void {
     expectFields(ext, ['id', 'extensionId', 'name', 'version', 'publisher']);
@@ -163,6 +320,12 @@ export namespace SchemaValidators {
 
   /**
    * Validates EnvironmentExtension schema
+   *
+   * Checks required fields: id (UUID), environmentId (UUID), extension (Extension object), status, createdAt (ISO date)
+   *
+   * @param envExt - EnvironmentExtension object to validate
+   * @throws {Error} If schema validation fails
+   * @public
    */
   export function validateEnvironmentExtension(envExt: any): void {
     expectFields(envExt, ['id', 'environmentId', 'extension', 'status', 'createdAt']);
@@ -175,6 +338,12 @@ export namespace SchemaValidators {
 
   /**
    * Validates EnvironmentVariable schema
+   *
+   * Checks required fields: id (UUID), key, value, isEncrypted (boolean)
+   *
+   * @param envVar - EnvironmentVariable object to validate
+   * @throws {Error} If schema validation fails
+   * @public
    */
   export function validateEnvironmentVariable(envVar: any): void {
     expectFields(envVar, ['id', 'key', 'value', 'isEncrypted']);
@@ -186,6 +355,12 @@ export namespace SchemaValidators {
 
   /**
    * Validates LogEntry schema
+   *
+   * Checks required fields: id (UUID), timestamp (ISO date), stream (stdout/stderr), message
+   *
+   * @param log - LogEntry object to validate
+   * @throws {Error} If schema validation fails
+   * @public
    */
   export function validateLogEntry(log: any): void {
     expectFields(log, ['id', 'timestamp', 'stream', 'message']);
@@ -197,6 +372,12 @@ export namespace SchemaValidators {
 
   /**
    * Validates Pagination schema
+   *
+   * Checks required fields: page, limit, total, totalPages (all numbers)
+   *
+   * @param pagination - Pagination object to validate
+   * @throws {Error} If schema validation fails
+   * @public
    */
   export function validatePagination(pagination: any): void {
     expectFields(pagination, ['page', 'limit', 'total', 'totalPages']);
@@ -208,6 +389,12 @@ export namespace SchemaValidators {
 
   /**
    * Validates Error response schema
+   *
+   * Checks required fields: error, message (both strings)
+   *
+   * @param body - Error response body to validate
+   * @throws {Error} If schema validation fails
+   * @public
    */
   export function validateError(body: any): void {
     expectFields(body, ['error', 'message']);
