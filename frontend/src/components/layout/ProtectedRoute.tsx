@@ -8,12 +8,32 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Box, CircularProgress } from '@mui/material';
 
+/**
+ * Props for the ProtectedRoute component
+ */
 interface ProtectedRouteProps {
+  /** React children to render when authenticated */
   children: React.ReactNode;
 }
 
 /**
- * Protected route that redirects to login if not authenticated
+ * Protected route wrapper that requires authentication
+ *
+ * Displays a loading spinner while checking authentication status.
+ * Redirects to /login if not authenticated, preserving the intended destination.
+ * Renders children if authenticated.
+ *
+ * @param props - Component props
+ * @param props.children - React children to render when authenticated
+ * @returns Protected route content or redirect
+ * @public
+ *
+ * @example
+ * ```tsx
+ * <ProtectedRoute>
+ *   <Dashboard />
+ * </ProtectedRoute>
+ * ```
  */
 export function ProtectedRoute({ children }: ProtectedRouteProps): JSX.Element {
   const { isAuthenticated, isLoading } = useAuth();

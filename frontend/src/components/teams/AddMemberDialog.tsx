@@ -26,12 +26,24 @@ interface AddMemberDialogProps {
  * Add member dialog component
  */
 export function AddMemberDialog({ open, onSubmit, onCancel }: AddMemberDialogProps): JSX.Element {
-  const [userId, setUserId] = useState('');
+  const [userId, setUserId] = useState<string>('');
   const [role, setRole] = useState<'ADMIN' | 'MEMBER'>('MEMBER');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [userIdError, setUserIdError] = useState<string>('');
+
+  const validateUserId = (value: string): boolean => {
+    if (!value) return false;
+    // Basic check: either looks like email or is non-empty string (ID)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(value) || value.length > 0;
+  };
 
   const handleSubmit = async () => {
-    if (!userId) return;
+    if (!userId || !validateUserId(userId)) {
+      setUserIdError('Please enter a valid user ID or email');
+      return;
+    }
+    setUserIdError('');
 
     setLoading(true);
     try {
@@ -54,7 +66,12 @@ export function AddMemberDialog({ open, onSubmit, onCancel }: AddMemberDialogPro
           <TextField
             label="User ID or Email"
             value={userId}
-            onChange={(e) => setUserId(e.target.value)}
+            onChange={(e) => {
+              setUserId(e.target.value);
+              setUserIdError('');
+            }}
+            error={!!userIdError}
+            helperText={userIdError}
             required
             fullWidth
             autoFocus

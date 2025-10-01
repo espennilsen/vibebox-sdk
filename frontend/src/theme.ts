@@ -3,12 +3,24 @@
  * Custom theme with dark/light mode support
  */
 
-import { createTheme, ThemeOptions } from '@mui/material/styles';
+import { createTheme, ThemeOptions, Theme } from '@mui/material/styles';
 
 /**
- * Create theme with mode (light or dark)
+ * Create Material-UI theme with specified mode
+ *
+ * Generates a customized theme with VibeBox branding colors, typography,
+ * and component overrides for both light and dark modes.
+ *
+ * @param mode - Theme mode ('light' or 'dark')
+ * @returns Configured Material-UI theme
+ * @public
+ *
+ * @example
+ * ```tsx
+ * const theme = createAppTheme('dark');
+ * ```
  */
-export function createAppTheme(mode: 'light' | 'dark') {
+export function createAppTheme(mode: 'light' | 'dark'): Theme {
   const themeOptions: ThemeOptions = {
     palette: {
       mode,

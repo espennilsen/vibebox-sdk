@@ -14,21 +14,54 @@ import {
   Box,
 } from '@mui/material';
 import type { Team, CreateTeamRequest, UpdateTeamRequest } from '@/types';
+import { useNotification } from '@/contexts/NotificationContext';
 
+/**
+ * Props for the TeamForm component
+ */
 interface TeamFormProps {
+  /** Whether the dialog is open */
   open: boolean;
+  /** Team to edit, or null/undefined for create mode */
   team?: Team | null;
+  /** Callback when form is submitted with team data */
   onSubmit: (data: CreateTeamRequest | UpdateTeamRequest) => Promise<void>;
+  /** Callback when form is cancelled */
   onCancel: () => void;
 }
 
 /**
- * Team form dialog component
+ * Team form dialog for creating and editing teams
+ *
+ * Displays a modal form with name and description fields.
+ * In edit mode, pre-fills with existing team data.
+ *
+ * @param props - Component props
+ * @param props.open - Whether the dialog is open
+ * @param props.team - Team to edit, or null/undefined for create mode
+ * @param props.onSubmit - Callback when form is submitted with team data
+ * @param props.onCancel - Callback when form is cancelled
+ * @returns Team form dialog
+ * @public
+ *
+ * @example
+ * ```tsx
+ * <TeamForm
+ *   open={formOpen}
+ *   team={selectedTeam}
+ *   onSubmit={async (data) => {
+ *     await teamsApi.createTeam(data);
+ *     setFormOpen(false);
+ *   }}
+ *   onCancel={() => setFormOpen(false)}
+ * />
+ * ```
  */
 export function TeamForm({ open, team, onSubmit, onCancel }: TeamFormProps): JSX.Element {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [loading, setLoading] = useState(false);
+  const notification = useNotification();
+  const [name, setName] = useState<string>('');
+  const [description, setDescription] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
     if (team) {
@@ -51,6 +84,7 @@ export function TeamForm({ open, team, onSubmit, onCancel }: TeamFormProps): JSX
       });
       handleClose();
     } catch (error) {
+      notification.error('Failed to save team. Please try again.');
       console.error('Form submission failed:', error);
     } finally {
       setLoading(false);

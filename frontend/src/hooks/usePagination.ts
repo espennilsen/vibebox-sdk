@@ -5,12 +5,18 @@
 
 import { useState, useCallback } from 'react';
 
-interface UsePaginationOptions {
+/**
+ * Options for configuring pagination behavior
+ */
+export interface UsePaginationOptions {
   initialPage?: number;
   initialPageSize?: number;
 }
 
-interface UsePaginationReturn {
+/**
+ * Return type for usePagination hook
+ */
+export interface UsePaginationReturn {
   page: number;
   pageSize: number;
   totalPages: number;
@@ -24,6 +30,25 @@ interface UsePaginationReturn {
 
 /**
  * Hook for managing pagination state
+ *
+ * Provides a complete pagination state manager with page navigation helpers.
+ *
+ * @param options - Optional pagination configuration
+ * @param options.initialPage - Starting page number (default: 1)
+ * @param options.initialPageSize - Items per page (default: 20)
+ * @returns Pagination state and navigation functions
+ * @public
+ *
+ * @example
+ * ```tsx
+ * const { page, pageSize, totalPages, setTotalPages, nextPage, previousPage } = usePagination({
+ *   initialPage: 1,
+ *   initialPageSize: 10
+ * });
+ *
+ * // After fetching data
+ * setTotalPages(Math.ceil(totalItems / pageSize));
+ * ```
  */
 export function usePagination(options: UsePaginationOptions = {}): UsePaginationReturn {
   const { initialPage = 1, initialPageSize = 20 } = options;

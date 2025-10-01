@@ -14,22 +14,57 @@ import {
   Box,
 } from '@mui/material';
 import type { Project, CreateProjectRequest, UpdateProjectRequest } from '@/types';
+import { useNotification } from '@/contexts/NotificationContext';
 
+/**
+ * Props for the ProjectForm component
+ */
 interface ProjectFormProps {
+  /** Whether the dialog is open */
   open: boolean;
+  /** Project to edit, or null/undefined for create mode */
   project?: Project | null;
+  /** Callback when form is submitted with project data */
   onSubmit: (data: CreateProjectRequest | UpdateProjectRequest) => Promise<void>;
+  /** Callback when form is cancelled */
   onCancel: () => void;
 }
 
 /**
- * Project form dialog component
+ * Project form dialog for creating and editing projects
+ *
+ * Displays a modal form with name, description, and repository URL fields.
+ * Validates repository URL format (http/https).
+ * In edit mode, pre-fills with existing project data.
+ *
+ * @param props - Component props
+ * @param props.open - Whether the dialog is open
+ * @param props.project - Project to edit, or null/undefined for create mode
+ * @param props.onSubmit - Callback when form is submitted with project data
+ * @param props.onCancel - Callback when form is cancelled
+ * @returns Project form dialog
+ * @public
+ *
+ * @example
+ * ```tsx
+ * <ProjectForm
+ *   open={formOpen}
+ *   project={selectedProject}
+ *   onSubmit={async (data) => {
+ *     await projectsApi.createProject(data);
+ *     setFormOpen(false);
+ *   }}
+ *   onCancel={() => setFormOpen(false)}
+ * />
+ * ```
  */
 export function ProjectForm({ open, project, onSubmit, onCancel }: ProjectFormProps): JSX.Element {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [repositoryUrl, setRepositoryUrl] = useState('');
-  const [loading, setLoading] = useState(false);
+  const notification = useNotification();
+  const [name, setName] = useState<string>('');
+  const [description, setDescription] = useState<string>('');
+  const [repositoryUrl, setRepositoryUrl] = useState<string>('');
+  const [repositoryUrlError, setRepositoryUrlError] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
     if (project) {
@@ -43,8 +78,29 @@ export function ProjectForm({ open, project, onSubmit, onCancel }: ProjectFormPr
     }
   }, [project, open]);
 
+  /**
+   * Validates repository URL format
+   */
+  const validateRepositoryUrl = (url: string): boolean => {
+    if (!url) return true; // Optional field
+    try {
+      const urlObj = new URL(url);
+      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate repository URL if provided
+    if (repositoryUrl && !validateRepositoryUrl(repositoryUrl)) {
+      setRepositoryUrlError('Please enter a valid http or https URL');
+      return;
+    }
+    setRepositoryUrlError('');
+
     setLoading(true);
 
     try {
@@ -55,6 +111,7 @@ export function ProjectForm({ open, project, onSubmit, onCancel }: ProjectFormPr
       });
       handleClose();
     } catch (error) {
+      notification.error('Failed to save project. Please try again.');
       console.error('Form submission failed:', error);
     } finally {
       setLoading(false);
@@ -93,7 +150,12 @@ export function ProjectForm({ open, project, onSubmit, onCancel }: ProjectFormPr
             <TextField
               label="Repository URL"
               value={repositoryUrl}
-              onChange={(e) => setRepositoryUrl(e.target.value)}
+              onChange={(e) => {
+                setRepositoryUrl(e.target.value);
+                setRepositoryUrlError('');
+              }}
+              error={!!repositoryUrlError}
+              helperText={repositoryUrlError || 'Optional'}
               fullWidth
               placeholder="https://github.com/username/repo"
             />

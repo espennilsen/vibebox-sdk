@@ -22,6 +22,21 @@ interface UseApiReturn<T, Args extends unknown[]> {
 
 /**
  * Hook for API calls with automatic loading and error state management
+ *
+ * @template T - The type of data returned by the API call
+ * @template Args - The types of arguments passed to the API function
+ * @param apiFunction - The API function to execute
+ * @returns Object containing data, loading state, error, execute function, and reset function
+ * @public
+ *
+ * @example
+ * ```tsx
+ * const { data, loading, error, execute } = useApi(projectsApi.getProject);
+ *
+ * useEffect(() => {
+ *   execute(projectId);
+ * }, [projectId, execute]);
+ * ```
  */
 export function useApi<T, Args extends unknown[] = []>(
   apiFunction: (...args: Args) => Promise<T>

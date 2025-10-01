@@ -8,13 +8,35 @@ import { Card, CardContent, Typography, Box } from '@mui/material';
 import type { Environment } from '@/types';
 import { StatusBadge } from '@/components/common';
 
+/**
+ * Props for the EnvironmentCard component
+ */
 interface EnvironmentCardProps {
+  /** Environment object to display */
   environment: Environment;
+  /** Optional click handler for card navigation */
   onClick?: () => void;
 }
 
 /**
- * Environment card component
+ * Environment card component displaying environment details
+ *
+ * Shows environment name, status, description, base image, and resource limits
+ * in a Material-UI Card. Optionally clickable for navigation.
+ *
+ * @param props - Component props
+ * @param props.environment - Environment object to display
+ * @param props.onClick - Optional click handler for card navigation
+ * @returns Environment card UI
+ * @public
+ *
+ * @example
+ * ```tsx
+ * <EnvironmentCard
+ *   environment={env}
+ *   onClick={() => navigate(`/environments/${env.id}`)}
+ * />
+ * ```
  */
 export function EnvironmentCard({ environment, onClick }: EnvironmentCardProps): JSX.Element {
   return (
