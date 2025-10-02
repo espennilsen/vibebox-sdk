@@ -44,7 +44,7 @@ export async function createServer() {
             if (allowedOrigins.includes(origin)) {
               callback(null, true);
             } else {
-              callback(new Error('Not allowed by CORS'));
+              callback(new Error('Not allowed by CORS'), false);
             }
           }
         : config.frontendUrl, // Fallback to simple origin in development

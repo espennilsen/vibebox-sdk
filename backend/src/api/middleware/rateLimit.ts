@@ -198,6 +198,11 @@ export function createIPRateLimit(config: RateLimitConfig) {
  */
 export function createCompositeRateLimit(limits: RateLimitConfig[]) {
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    // Validate limits array is not empty
+    if (limits.length === 0) {
+      throw new Error('At least one rate limit configuration is required');
+    }
+
     // Use user ID if authenticated, otherwise use IP address
     const baseKey =
       (request as { user?: { userId: string } }).user?.userId || request.ip || 'unknown';
@@ -229,10 +234,11 @@ export function createCompositeRateLimit(limits: RateLimitConfig[]) {
     }
 
     // Set headers based on the most restrictive limit
-    reply.header('X-RateLimit-Limit', limitToReport.max);
+    // limitToReport is guaranteed to be defined because we check limits.length > 0
+    reply.header('X-RateLimit-Limit', limitToReport!.max);
     reply.header(
       'X-RateLimit-Remaining',
-      minRemaining === Infinity ? limitToReport.max : minRemaining
+      minRemaining === Infinity ? limitToReport!.max : minRemaining
     );
     if (resetToReport) {
       reply.header('X-RateLimit-Reset', Math.ceil(resetToReport / 1000));

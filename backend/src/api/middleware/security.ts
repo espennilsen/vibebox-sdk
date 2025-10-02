@@ -139,9 +139,25 @@ export function securityHeaders(customConfig?: Partial<SecurityHeadersConfig>) {
 }
 
 /**
+ * Sanitization utilities interface
+ */
+interface SanitizationUtils {
+  string(input: string): string;
+  html(input: string): string;
+  email(input: string): string;
+  url(input: string): string;
+  sql(input: string): string;
+  filename(input: string): string;
+  object<T extends Record<string, unknown>>(
+    obj: T,
+    sanitizer?: (input: string) => string
+  ): T;
+}
+
+/**
  * Input sanitization utilities
  */
-export const sanitize = {
+export const sanitize: SanitizationUtils = {
   /**
    * Sanitize string input to prevent XSS
    *
