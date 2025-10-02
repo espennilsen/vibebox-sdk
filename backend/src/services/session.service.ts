@@ -5,7 +5,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import type { Session } from '@prisma/client';
-import { SessionType, SessionStatus, EnvironmentStatus } from '@prisma/client';
+import { SessionType, SessionStatus, EnvironmentStatus } from '@/types/prisma-enums';
 import { getPrismaClient } from '@/lib/db';
 import {
   NotFoundError,

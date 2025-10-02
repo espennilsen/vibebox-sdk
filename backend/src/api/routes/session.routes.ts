@@ -5,7 +5,7 @@
  */
 import { FastifyInstance, RouteHandlerMethod } from 'fastify';
 import { SessionService } from '@/services';
-import { SessionType } from '@prisma/client';
+import { SessionType } from '@/types/prisma-enums';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { requireEnvironmentAccess } from '../middleware/authorize';
 import { validate, patterns } from '../middleware/validation';

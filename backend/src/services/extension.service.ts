@@ -5,7 +5,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import type { Extension, EnvironmentExtension } from '@prisma/client';
-import { EnvironmentExtensionStatus } from '@prisma/client';
+import { EnvironmentExtensionStatus } from '@/types/prisma-enums';
 import { getPrismaClient } from '@/lib/db';
 import { NotFoundError, ValidationError, ConflictError, ForbiddenError } from '@/lib/errors';
 import { DockerService } from './docker.service';

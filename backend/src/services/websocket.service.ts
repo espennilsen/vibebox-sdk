@@ -4,7 +4,7 @@
  * Tasks: T076, T065-T066
  */
 import { WebSocket } from 'ws';
-import { LogStream } from '@prisma/client';
+import { LogStream } from '@/types/prisma-enums';
 
 /**
  * WebSocket message types

@@ -5,7 +5,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import type { LogEntry } from '@prisma/client';
-import { LogStream } from '@prisma/client';
+import { LogStream } from '@/types/prisma-enums';
 import { getPrismaClient } from '@/lib/db';
 import { DockerService } from './docker.service';
 import { NotFoundError, ForbiddenError } from '@/lib/errors';
