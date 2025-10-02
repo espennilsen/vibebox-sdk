@@ -4,11 +4,10 @@
  * Task: GitHub Issue #7 - Resource Quotas and Limits
  */
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { PrismaClient } from '@prisma/client';
 import { AuthenticatedRequest } from './auth';
-import { TooManyRequestsError } from '@/lib/errors';
-
-const prisma = new PrismaClient();
+import { TooManyRequestsError, NotFoundError, ValidationError } from '@/lib/errors';
+import { getPrismaClient } from '@/lib/db';
+import { RESOURCE_LIMITS } from '@/lib/constants';
 
 /**
  * Check user environment quota middleware
@@ -32,6 +31,7 @@ const prisma = new PrismaClient();
 export async function checkUserQuota(request: FastifyRequest, _reply: FastifyReply): Promise<void> {
   const authRequest = request as AuthenticatedRequest;
   const userId = authRequest.user.userId;
+  const prisma = getPrismaClient();
 
   // Get user with their quota limit
   const user = await prisma.user.findUnique({
@@ -40,7 +40,7 @@ export async function checkUserQuota(request: FastifyRequest, _reply: FastifyRep
   });
 
   if (!user) {
-    throw new TooManyRequestsError('User not found');
+    throw new NotFoundError('User not found');
   }
 
   // Count active environments for this user
@@ -88,6 +88,8 @@ export async function checkTeamQuota(request: FastifyRequest, _reply: FastifyRep
     // No project specified, skip team quota check
     return;
   }
+
+  const prisma = getPrismaClient();
 
   // Get project with team information
   const project = await prisma.project.findUnique({
@@ -156,6 +158,8 @@ export async function checkTeamMemberQuota(
     return;
   }
 
+  const prisma = getPrismaClient();
+
   // Get team with member count
   const team = await prisma.team.findUnique({
     where: { id: params.teamId },
@@ -168,7 +172,7 @@ export async function checkTeamMemberQuota(
   });
 
   if (!team) {
-    throw new TooManyRequestsError('Team not found');
+    throw new NotFoundError('Team not found');
   }
 
   // Check if quota exceeded
@@ -198,44 +202,42 @@ export async function checkTeamMemberQuota(
  * );
  * ```
  */
-export async function validateResourceLimits(
-  request: FastifyRequest,
-  _reply: FastifyReply
-): Promise<void> {
+export function validateResourceLimits(request: FastifyRequest, _reply: FastifyReply): void {
   const body = request.body as {
     cpuLimit?: number;
     memoryLimit?: number;
     storageLimit?: number;
   };
 
-  // Define maximum allowed resource limits
-  const MAX_CPU = 8.0; // 8 CPUs
-  const MAX_MEMORY = 16384; // 16 GB in MB
-  const MAX_STORAGE = 102400; // 100 GB in MB
-
   // Validate CPU limit
   if (body.cpuLimit !== undefined) {
-    if (body.cpuLimit <= 0 || body.cpuLimit > MAX_CPU) {
-      throw new TooManyRequestsError(
-        `CPU limit must be between 0 and ${MAX_CPU}. Requested: ${body.cpuLimit}`
+    if (body.cpuLimit < RESOURCE_LIMITS.CPU.MIN || body.cpuLimit > RESOURCE_LIMITS.CPU.MAX) {
+      throw new ValidationError(
+        `CPU limit must be between ${RESOURCE_LIMITS.CPU.MIN} and ${RESOURCE_LIMITS.CPU.MAX} cores. Requested: ${body.cpuLimit}`
       );
     }
   }
 
   // Validate memory limit
   if (body.memoryLimit !== undefined) {
-    if (body.memoryLimit <= 0 || body.memoryLimit > MAX_MEMORY) {
-      throw new TooManyRequestsError(
-        `Memory limit must be between 0 and ${MAX_MEMORY} MB. Requested: ${body.memoryLimit}`
+    if (
+      body.memoryLimit < RESOURCE_LIMITS.MEMORY.MIN ||
+      body.memoryLimit > RESOURCE_LIMITS.MEMORY.MAX
+    ) {
+      throw new ValidationError(
+        `Memory limit must be between ${RESOURCE_LIMITS.MEMORY.MIN} and ${RESOURCE_LIMITS.MEMORY.MAX} MB. Requested: ${body.memoryLimit}`
       );
     }
   }
 
   // Validate storage limit
   if (body.storageLimit !== undefined) {
-    if (body.storageLimit <= 0 || body.storageLimit > MAX_STORAGE) {
-      throw new TooManyRequestsError(
-        `Storage limit must be between 0 and ${MAX_STORAGE} MB. Requested: ${body.storageLimit}`
+    if (
+      body.storageLimit < RESOURCE_LIMITS.STORAGE.MIN ||
+      body.storageLimit > RESOURCE_LIMITS.STORAGE.MAX
+    ) {
+      throw new ValidationError(
+        `Storage limit must be between ${RESOURCE_LIMITS.STORAGE.MIN} and ${RESOURCE_LIMITS.STORAGE.MAX} MB. Requested: ${body.storageLimit}`
       );
     }
   }
