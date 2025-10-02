@@ -2,12 +2,83 @@
  * WebSocketService - Real-time Communication Service
  * Handles WebSocket connections, log streaming, terminal sessions, and status updates
  * Tasks: T076, T065-T066
+ *
+ * @example Client-side connection
+ * ```javascript
+ * const token = localStorage.getItem('accessToken');
+ * const ws = new WebSocket(`ws://localhost:3000/api/v1/ws/logs?token=${token}`);
+ *
+ * ws.onopen = () => {
+ *   ws.send(JSON.stringify({
+ *     type: 'log_subscribe',
+ *     payload: { environmentId: 'env-123', stream: 'stdout' }
+ *   }));
+ * };
+ *
+ * ws.onmessage = (event) => {
+ *   const message = JSON.parse(event.data);
+ *   if (message.type === 'log') {
+ *     console.log(message.payload.message);
+ *   }
+ * };
+ * ```
+ *
+ * @example Error handling
+ * ```javascript
+ * ws.onerror = (error) => {
+ *   console.error('WebSocket error:', error);
+ * };
+ *
+ * ws.onclose = (event) => {
+ *   console.log('Connection closed:', event.code, event.reason);
+ *   if (event.code !== 1000) {
+ *     // Implement reconnection logic
+ *     setTimeout(() => reconnect(), 5000);
+ *   }
+ * };
+ * ```
+ *
+ * @example React Hook integration
+ * ```typescript
+ * function useWebSocket(url: string, token: string) {
+ *   const [isConnected, setIsConnected] = useState(false);
+ *   const wsRef = useRef<WebSocket | null>(null);
+ *
+ *   useEffect(() => {
+ *     const ws = new WebSocket(`${url}?token=${token}`);
+ *     wsRef.current = ws;
+ *
+ *     ws.onopen = () => setIsConnected(true);
+ *     ws.onclose = () => setIsConnected(false);
+ *
+ *     return () => ws.close();
+ *   }, [url, token]);
+ *
+ *   return { isConnected, ws: wsRef.current };
+ * }
+ * ```
  */
 import { WebSocket } from 'ws';
 import { LogStream } from '@/types/prisma-enums';
 
 /**
  * WebSocket message types
+ *
+ * @example Client subscribing to logs
+ * ```javascript
+ * ws.send(JSON.stringify({
+ *   type: 'log_subscribe',
+ *   payload: { environmentId: 'env-123', stream: 'all' }
+ * }));
+ * ```
+ *
+ * @example Terminal input
+ * ```javascript
+ * ws.send(JSON.stringify({
+ *   type: 'terminal_input',
+ *   payload: { sessionId: 'session-456', data: 'ls -la\n' }
+ * }));
+ * ```
  */
 export enum MessageType {
   // Log streaming
@@ -33,6 +104,18 @@ export enum MessageType {
 
 /**
  * WebSocket message structure
+ *
+ * All messages follow this consistent format for both client and server communication.
+ *
+ * @example Receiving a log message
+ * ```javascript
+ * ws.onmessage = (event) => {
+ *   const message = JSON.parse(event.data);
+ *   console.log('Type:', message.type);
+ *   console.log('Data:', message.payload);
+ *   console.log('Timestamp:', new Date(message.timestamp));
+ * };
+ * ```
  */
 export interface WebSocketMessage {
   type: MessageType;
@@ -42,6 +125,17 @@ export interface WebSocketMessage {
 
 /**
  * Log message payload
+ *
+ * @example Client receiving log message
+ * ```javascript
+ * ws.onmessage = (event) => {
+ *   const msg = JSON.parse(event.data);
+ *   if (msg.type === 'log') {
+ *     const { environmentId, stream, message, timestamp } = msg.payload;
+ *     console.log(`[${stream}] ${message}`);
+ *   }
+ * };
+ * ```
  */
 export interface LogMessagePayload {
   environmentId: string;
@@ -52,6 +146,15 @@ export interface LogMessagePayload {
 
 /**
  * Terminal input payload
+ *
+ * @example Sending terminal input
+ * ```javascript
+ * const input = 'npm start\n';
+ * ws.send(JSON.stringify({
+ *   type: 'terminal_input',
+ *   payload: { sessionId: 'session-123', data: input }
+ * }));
+ * ```
  */
 export interface TerminalInputPayload {
   sessionId: string;
@@ -60,6 +163,19 @@ export interface TerminalInputPayload {
 
 /**
  * Terminal output payload
+ *
+ * @example Receiving terminal output with xterm.js
+ * ```javascript
+ * import { Terminal } from 'xterm';
+ * const term = new Terminal();
+ *
+ * ws.onmessage = (event) => {
+ *   const msg = JSON.parse(event.data);
+ *   if (msg.type === 'terminal_output') {
+ *     term.write(msg.payload.data);
+ *   }
+ * };
+ * ```
  */
 export interface TerminalOutputPayload {
   sessionId: string;
@@ -68,6 +184,16 @@ export interface TerminalOutputPayload {
 
 /**
  * Terminal resize payload
+ *
+ * @example Resizing terminal with xterm.js
+ * ```javascript
+ * term.onResize(({ rows, cols }) => {
+ *   ws.send(JSON.stringify({
+ *     type: 'terminal_resize',
+ *     payload: { sessionId: 'session-123', rows, cols }
+ *   }));
+ * });
+ * ```
  */
 export interface TerminalResizePayload {
   sessionId: string;
@@ -77,6 +203,17 @@ export interface TerminalResizePayload {
 
 /**
  * Environment status payload
+ *
+ * @example Monitoring environment status
+ * ```javascript
+ * ws.onmessage = (event) => {
+ *   const msg = JSON.parse(event.data);
+ *   if (msg.type === 'env_status') {
+ *     const { status, message } = msg.payload;
+ *     console.log(`Environment is ${status}: ${message}`);
+ *   }
+ * };
+ * ```
  */
 export interface EnvironmentStatusPayload {
   environmentId: string;
@@ -101,6 +238,44 @@ export interface ClientConnection {
  *
  * Provides methods for broadcasting messages, managing client connections,
  * streaming logs, and handling terminal sessions.
+ *
+ * @example Basic server-side usage
+ * ```typescript
+ * const wsService = new WebSocketService();
+ *
+ * // Register client
+ * const clientId = crypto.randomUUID();
+ * wsService.registerClient(clientId, websocket, userId);
+ *
+ * // Subscribe to environment
+ * wsService.subscribeToEnvironment(clientId, environmentId);
+ *
+ * // Broadcast log
+ * wsService.broadcastLog({
+ *   environmentId,
+ *   stream: LogStream.stdout,
+ *   message: 'Application started',
+ *   timestamp: new Date()
+ * });
+ * ```
+ *
+ * @example Keep-alive ping
+ * ```typescript
+ * const wsService = new WebSocketService();
+ *
+ * // Ping all clients every 30 seconds
+ * setInterval(() => {
+ *   wsService.pingAll();
+ * }, 30000);
+ * ```
+ *
+ * @example Cleanup on shutdown
+ * ```typescript
+ * process.on('SIGTERM', () => {
+ *   wsService.closeAll();
+ *   process.exit(0);
+ * });
+ * ```
  */
 export class WebSocketService {
   private clients: Map<string, ClientConnection> = new Map();

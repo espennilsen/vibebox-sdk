@@ -60,6 +60,15 @@ Complete documentation is available in the `.claude/` directory:
   - Troubleshooting and disaster recovery
 
 ### Features & Guides
+- **[WebSocket Guide](./.claude/websocket_guide.md)** - Real-time communication
+  - Log streaming (stdout/stderr)
+  - Interactive terminal sessions
+  - Environment status updates
+  - Authentication and security
+  - Client implementation examples
+  - Error handling and reconnection
+  - React integration patterns
+
 - **[tmux Guide](./.claude/tmux.md)** - Session management
   - tmux basics and key bindings
   - Multi-pane workflows
@@ -154,6 +163,15 @@ npm run db:studio        # Open Prisma Studio
 ---
 
 ## Recent Changes
+
+- **2025-10-01**: WebSocket documentation and guides
+  - Comprehensive WebSocket guide with real-time communication patterns
+  - Detailed documentation for log streaming, terminal sessions, and status updates
+  - Client-side implementation examples (JavaScript, TypeScript, React)
+  - Connection management, error handling, and reconnection strategies
+  - Security best practices and authentication flows
+  - Performance optimization and troubleshooting guides
+  - Integration examples with xterm.js for terminal emulation
 
 - **2025-10-01**: Production secrets management implementation
   - Multi-provider secret manager (AWS, GCP, Azure, Vault, K8s)
