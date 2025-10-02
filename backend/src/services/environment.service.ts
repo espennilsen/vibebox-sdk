@@ -4,7 +4,7 @@
  * Tasks: T072, T046-T053
  */
 import { PrismaClient } from '@prisma/client';
-import { EnvironmentStatus, Protocol } from '@prisma/client';
+import { EnvironmentStatus, Protocol } from '@/types/prisma-enums';
 import type { Environment } from '@prisma/client';
 import { getPrismaClient } from '@/lib/db';
 import { DockerService } from './docker.service';

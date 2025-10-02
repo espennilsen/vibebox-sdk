@@ -5,7 +5,7 @@
  */
 import { FastifyInstance, RouteHandlerMethod } from 'fastify';
 import { TeamService } from '@/services';
-import { UserTeamRole } from '@prisma/client';
+import { UserTeamRole } from '@/types/prisma-enums';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { requireTeamMember, requireTeamAdmin } from '../middleware/authorize';
 import { validate, patterns } from '../middleware/validation';

@@ -19,10 +19,12 @@ import {
   MenuItem,
   Box,
   Typography,
+  Alert,
 } from '@mui/material';
 import { Delete, Add } from '@mui/icons-material';
 import type { PortMapping, AddPortMappingRequest } from '@/types';
 import { useNotification } from '@/contexts/NotificationContext';
+import { ApiException } from '@/services/api';
 
 /**
  * Props for the PortList component
@@ -68,6 +70,7 @@ export function PortList({ ports, onAdd, onRemove }: PortListProps): JSX.Element
     description: '',
   });
   const [portError, setPortError] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   /**
    * Validates port number is in valid range (1-65535)
@@ -88,6 +91,7 @@ export function PortList({ ports, onAdd, onRemove }: PortListProps): JSX.Element
       return;
     }
     setPortError('');
+    setErrorMessage(''); // Clear previous errors
 
     try {
       await onAdd(formData);
@@ -100,7 +104,28 @@ export function PortList({ ports, onAdd, onRemove }: PortListProps): JSX.Element
         description: '',
       });
     } catch (error) {
-      notification.error('Failed to add port mapping');
+      // Extract user-friendly error message from API response
+      let userMessage = 'Failed to add port mapping. Please try again.';
+
+      if (error instanceof ApiException) {
+        // Use the specific error message from the API
+        userMessage = error.message;
+
+        // For validation errors, provide more context
+        if (error.error === 'VALIDATION_ERROR' && error.details) {
+          const fieldErrors = Object.entries(error.details)
+            .map(([field, msg]) => `${field}: ${msg}`)
+            .join(', ');
+          userMessage = `Validation error: ${fieldErrors}`;
+        }
+        // Handle specific port conflict errors
+        else if (error.message.includes('port') || error.message.includes('already')) {
+          userMessage = error.message;
+        }
+      }
+
+      setErrorMessage(userMessage);
+      notification.error(userMessage);
       console.error('Failed to add port mapping:', error);
     }
   };
@@ -110,7 +135,14 @@ export function PortList({ ports, onAdd, onRemove }: PortListProps): JSX.Element
       await onRemove(port);
       notification.success('Port mapping removed successfully');
     } catch (error) {
-      notification.error('Failed to remove port mapping');
+      // Extract user-friendly error message from API response
+      let userMessage = 'Failed to remove port mapping. Please try again.';
+
+      if (error instanceof ApiException) {
+        userMessage = error.message;
+      }
+
+      notification.error(userMessage);
       console.error('Failed to remove port mapping:', error);
     }
   };
@@ -154,6 +186,11 @@ export function PortList({ ports, onAdd, onRemove }: PortListProps): JSX.Element
         <DialogTitle>Add Port Mapping</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1, minWidth: 400 }}>
+            {errorMessage && (
+              <Alert severity="error" onClose={() => setErrorMessage('')}>
+                {errorMessage}
+              </Alert>
+            )}
             {portError && (
               <Typography color="error" variant="body2">
                 {portError}
@@ -211,6 +248,7 @@ export function PortList({ ports, onAdd, onRemove }: PortListProps): JSX.Element
                 description: '',
               });
               setPortError('');
+              setErrorMessage('');
               setDialogOpen(false);
             }}
           >

@@ -2,11 +2,17 @@
  * ESLint Configuration - ESLint 9 Flat Config Format
  * Backend linting rules for TypeScript
  */
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 import globals from 'globals';
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
 import prettier from 'eslint-plugin-prettier';
 import prettierConfig from 'eslint-config-prettier';
+
+// Compute __dirname equivalent for ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export default [
   {
@@ -27,7 +33,7 @@ export default [
         ecmaVersion: 2022,
         sourceType: 'module',
         project: './tsconfig.eslint.json',
-        tsconfigRootDir: import.meta.dirname,
+        tsconfigRootDir: __dirname,
       },
       globals: {
         ...globals.node,

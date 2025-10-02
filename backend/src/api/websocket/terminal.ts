@@ -5,10 +5,14 @@
  */
 import { FastifyRequest } from 'fastify';
 import { WebSocket } from 'ws';
-import { MessageType, SessionService } from '@/services';
+import { MessageType, SessionService, WebSocketService } from '@/services';
 import { logger } from '@/lib/logger';
 import { verifyWebSocketToken } from '@/lib/websocket-auth';
 import { ForbiddenError } from '@/lib/errors';
+import { randomUUID } from 'crypto';
+
+// Shared WebSocketService instance for all connections
+const wsService = new WebSocketService();
 
 /**
  * Handle terminal WebSocket connection with JWT authentication
@@ -91,7 +95,16 @@ export async function terminalHandler(
 
     logger.info({ sessionId, userId: user.userId }, 'Terminal WebSocket connected');
 
-    // Handle incoming messages
+    // Generate unique client ID
+    const clientId = randomUUID();
+
+    // Register client connection
+    wsService.registerClient(clientId, socket, user.userId);
+
+    // Subscribe client to session
+    wsService.subscribeToSession(clientId, sessionId);
+
+    // Handle incoming messages (terminal input)
     socket.on('message', (data: Buffer) => {
       try {
         const message = JSON.parse(data.toString());
@@ -100,16 +113,24 @@ export async function terminalHandler(
           'Terminal message received'
         );
 
-        // Echo back for now (actual terminal integration would go here)
-        socket.send(
-          JSON.stringify({
-            type: MessageType.TERMINAL_OUTPUT,
-            payload: {
-              sessionId,
-              data: `Received: ${message.payload?.data || 'unknown'}`,
-            },
-          })
-        );
+        if (message.type === MessageType.TERMINAL_INPUT) {
+          // Forward input to terminal process
+          // TODO: Implement actual terminal process communication
+          logger.debug({ sessionId, input: message.payload.data }, 'Terminal input received');
+
+          // Echo back for now (in production, this would come from actual terminal)
+          wsService.sendTerminalOutput({
+            sessionId,
+            data: message.payload.data,
+          });
+        } else if (message.type === MessageType.TERMINAL_RESIZE) {
+          // Handle terminal resize
+          logger.debug(
+            { sessionId, cols: message.payload.cols, rows: message.payload.rows },
+            'Terminal resize'
+          );
+          // TODO: Implement actual terminal resize
+        }
       } catch (error) {
         logger.error(
           { error, sessionId, userId: user.userId },
@@ -120,12 +141,14 @@ export async function terminalHandler(
 
     // Handle close
     socket.on('close', () => {
-      logger.info({ sessionId, userId: user.userId }, 'Terminal WebSocket disconnected');
+      logger.info({ sessionId, userId: user.userId, clientId }, 'Terminal WebSocket disconnected');
+      wsService.unregisterClient(clientId);
     });
 
     // Handle errors
     socket.on('error', (error: Error) => {
-      logger.error({ error, sessionId, userId: user.userId }, 'Terminal WebSocket error');
+      logger.error({ error, sessionId, userId: user.userId, clientId }, 'Terminal WebSocket error');
+      wsService.unregisterClient(clientId);
     });
 
     // Send initial connection success message

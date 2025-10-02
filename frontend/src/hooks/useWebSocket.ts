@@ -3,7 +3,7 @@
  * Custom hook for WebSocket event subscriptions
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { getWebSocketClient } from '@/services/websocket';
 
 /**
@@ -39,6 +39,10 @@ export function useWebSocket<T>(
     handlerRef.current = handler;
   }, [handler]);
 
+  // Stabilize dependencies array using useMemo
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableDeps = useMemo(() => dependencies, dependencies);
+
   useEffect(() => {
     const ws = getWebSocketClient();
 
@@ -51,6 +55,5 @@ export function useWebSocket<T>(
     return () => {
       unsubscribe();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventType, ...dependencies]);
+  }, [eventType, stableDeps]);
 }
