@@ -10,11 +10,7 @@ import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { requireEnvironmentAccess, requireProjectAccess } from '../middleware/authorize';
 import { validate, patterns } from '../middleware/validation';
 import { rateLimits } from '../middleware/rateLimit';
-import {
-  checkUserQuota,
-  checkTeamQuota,
-  validateResourceLimits,
-} from '../middleware/quotas';
+import { checkUserQuota, checkTeamQuota, validateResourceLimits } from '../middleware/quotas';
 
 /**
  * Register environment routes

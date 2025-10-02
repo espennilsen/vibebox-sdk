@@ -4,7 +4,7 @@
  * Task: GitHub Issue #7 - Resource Quotas and Limits
  */
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { PrismaClient} from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { AuthenticatedRequest } from './auth';
 import { TooManyRequestsError } from '@/lib/errors';
 
@@ -29,10 +29,7 @@ const prisma = new PrismaClient();
  * );
  * ```
  */
-export async function checkUserQuota(
-  request: FastifyRequest,
-  _reply: FastifyReply
-): Promise<void> {
+export async function checkUserQuota(request: FastifyRequest, _reply: FastifyReply): Promise<void> {
   const authRequest = request as AuthenticatedRequest;
   const userId = authRequest.user.userId;
 
@@ -84,10 +81,7 @@ export async function checkUserQuota(
  * );
  * ```
  */
-export async function checkTeamQuota(
-  request: FastifyRequest,
-  _reply: FastifyReply
-): Promise<void> {
+export async function checkTeamQuota(request: FastifyRequest, _reply: FastifyReply): Promise<void> {
   const body = request.body as { projectId?: string };
 
   if (!body.projectId) {
