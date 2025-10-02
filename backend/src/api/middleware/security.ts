@@ -158,7 +158,6 @@ export const sanitize = {
         // Remove null bytes
         .replace(/\0/g, '')
         // Remove control characters except newline, carriage return, tab
-        // eslint-disable-next-line no-control-regex
         .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
         // Trim whitespace
         .trim()
@@ -257,7 +256,6 @@ export const sanitize = {
         // Remove null bytes
         .replace(/\0/g, '')
         // Remove control characters
-        // eslint-disable-next-line no-control-regex
         .replace(/[\x00-\x1F\x7F]/g, '')
         // Replace spaces with underscores
         .replace(/\s+/g, '_')
