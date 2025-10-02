@@ -5,10 +5,14 @@
  */
 import { FastifyRequest } from 'fastify';
 import { WebSocket } from 'ws';
-import { MessageType, EnvironmentService } from '@/services';
+import { MessageType, EnvironmentService, LogService, WebSocketService } from '@/services';
 import { logger } from '@/lib/logger';
 import { verifyWebSocketToken } from '@/lib/websocket-auth';
 import { ForbiddenError } from '@/lib/errors';
+import { randomUUID } from 'crypto';
+
+// Shared WebSocketService instance for all connections
+const wsService = new WebSocketService();
 
 /**
  * Handle log stream WebSocket connection with JWT authentication
@@ -86,6 +90,33 @@ export async function logStreamHandler(
 
     logger.info({ environmentId, userId: user.userId }, 'Log stream WebSocket connected');
 
+    const logService = new LogService();
+
+    // Generate unique client ID
+    const clientId = randomUUID();
+
+    // Register client connection
+    wsService.registerClient(clientId, socket, user.userId);
+
+    // Subscribe client to environment
+    wsService.subscribeToEnvironment(clientId, environmentId);
+
+    // Start streaming logs
+    const unsubscribe = await logService.streamLogs(environmentId, (logEntry) => {
+      try {
+        if (socket.readyState === WebSocket.OPEN) {
+          wsService.broadcastLog({
+            environmentId,
+            stream: logEntry.stream,
+            message: logEntry.content,
+            timestamp: logEntry.timestamp,
+          });
+        }
+      } catch (error) {
+        logger.error({ error, environmentId, userId: user.userId }, 'Error broadcasting log');
+      }
+    });
+
     // Send initial connection success message
     socket.send(
       JSON.stringify({
@@ -99,14 +130,24 @@ export async function logStreamHandler(
       })
     );
 
-    // Handle close
+    // Handle connection close
     socket.on('close', () => {
-      logger.info({ environmentId, userId: user.userId }, 'Log stream WebSocket disconnected');
+      logger.info(
+        { environmentId, userId: user.userId, clientId },
+        'Log stream WebSocket disconnected'
+      );
+      wsService.unregisterClient(clientId);
+      unsubscribe();
     });
 
     // Handle errors
     socket.on('error', (error: Error) => {
-      logger.error({ error, environmentId, userId: user.userId }, 'Log stream WebSocket error');
+      logger.error(
+        { error, environmentId, userId: user.userId, clientId },
+        'Log stream WebSocket error'
+      );
+      wsService.unregisterClient(clientId);
+      unsubscribe();
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

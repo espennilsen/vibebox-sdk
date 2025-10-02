@@ -3,7 +3,7 @@
  * List and manage teams
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Box, Typography, Button, Grid } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import { teamsApi } from '@/services/api';
@@ -24,12 +24,7 @@ export function Teams(): JSX.Element {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [teamToDelete, setTeamToDelete] = useState<Team | null>(null);
 
-  useEffect(() => {
-    loadTeams();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const loadTeams = async () => {
+  const loadTeams = useCallback(async () => {
     try {
       setLoading(true);
       // Note: This would need a listTeams endpoint in the API
@@ -41,7 +36,11 @@ export function Teams(): JSX.Element {
     } finally {
       setLoading(false);
     }
-  };
+  }, [notification]);
+
+  useEffect(() => {
+    loadTeams();
+  }, [loadTeams]);
 
   const handleCreate = async (data: CreateTeamRequest) => {
     try {

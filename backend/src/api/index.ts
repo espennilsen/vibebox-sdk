@@ -13,6 +13,7 @@ import { sessionRoutes } from './routes/session.routes';
 import { extensionRoutes } from './routes/extension.routes';
 import { logRoutes } from './routes/log.routes';
 import { healthRoutes } from './routes/health.routes';
+import { metricsRoutes } from './routes/metrics.routes';
 import { registerWebSocketRoutes } from './websocket';
 import { metricsPlugin } from '../lib/metrics';
 
@@ -60,6 +61,9 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
 
       // Log routes
       await api.register(logRoutes, { prefix: '/logs' });
+
+      // Metrics routes (protected)
+      await api.register(metricsRoutes, { prefix: '/metrics' });
     },
     { prefix: '/api/v1' }
   );
@@ -79,5 +83,6 @@ export {
   extensionRoutes,
   logRoutes,
   healthRoutes,
+  metricsRoutes,
   registerWebSocketRoutes,
 };

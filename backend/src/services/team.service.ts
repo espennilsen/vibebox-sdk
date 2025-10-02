@@ -5,7 +5,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import type { Team, UserTeam, User } from '@prisma/client';
-import { UserTeamRole } from '@prisma/client';
+import { UserTeamRole } from '@/types/prisma-enums';
 import { getPrismaClient } from '@/lib/db';
 import { NotFoundError, ValidationError, ConflictError, ForbiddenError } from '@/lib/errors';
 

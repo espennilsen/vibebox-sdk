@@ -5,7 +5,7 @@
  */
 import { FastifyInstance, RouteHandlerMethod } from 'fastify';
 import { EnvironmentService } from '@/services';
-import { Protocol } from '@prisma/client';
+import { Protocol } from '@/types/prisma-enums';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { requireEnvironmentAccess, requireProjectAccess } from '../middleware/authorize';
 import { validate, patterns } from '../middleware/validation';

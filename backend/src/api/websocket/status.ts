@@ -5,10 +5,14 @@
  */
 import { FastifyRequest } from 'fastify';
 import { WebSocket } from 'ws';
-import { MessageType, EnvironmentService } from '@/services';
+import { MessageType, EnvironmentService, WebSocketService } from '@/services';
 import { logger } from '@/lib/logger';
 import { verifyWebSocketToken } from '@/lib/websocket-auth';
 import { ForbiddenError } from '@/lib/errors';
+import { randomUUID } from 'crypto';
+
+// Shared WebSocketService instance for all connections
+const wsService = new WebSocketService();
 
 /**
  * Handle environment status WebSocket connection with JWT authentication
@@ -86,27 +90,81 @@ export async function statusHandler(
 
     logger.info({ environmentId, userId: user.userId }, 'Status WebSocket connected');
 
+    // Generate unique client ID
+    const clientId = randomUUID();
+
+    // Register client connection
+    wsService.registerClient(clientId, socket, user.userId);
+
+    // Subscribe client to environment
+    wsService.subscribeToEnvironment(clientId, environmentId);
+
     // Send initial status
-    socket.send(
-      JSON.stringify({
-        type: MessageType.ENV_STATUS,
-        payload: {
-          environmentId,
-          status: 'connected',
-          message: 'Status monitoring active',
-        },
-      })
-    );
+    try {
+      const status = await environmentService.getEnvironmentStatus(environmentId);
+      socket.send(
+        JSON.stringify({
+          type: MessageType.ENV_STATUS,
+          payload: {
+            environmentId,
+            status: status.status,
+            message: status.lastError || `Container status: ${status.containerStatus}`,
+          },
+        })
+      );
+    } catch (error) {
+      logger.error({ error, environmentId, userId: user.userId }, 'Error fetching initial status');
+    }
 
-    // Handle close
-    socket.on('close', () => {
-      logger.info({ environmentId, userId: user.userId }, 'Status WebSocket disconnected');
-    });
+    let statusInterval: NodeJS.Timeout | undefined;
 
-    // Handle errors
-    socket.on('error', (error: Error) => {
-      logger.error({ error, environmentId, userId: user.userId }, 'Status WebSocket error');
-    });
+    try {
+      // Poll for status updates every 5 seconds
+      statusInterval = setInterval(() => {
+        void (async () => {
+          try {
+            if (socket.readyState === WebSocket.OPEN) {
+              const status = await environmentService.getEnvironmentStatus(environmentId);
+              wsService.broadcastEnvironmentStatus({
+                environmentId,
+                status: status.status,
+                message: status.lastError || `Container status: ${status.containerStatus}`,
+              });
+            } else {
+              if (statusInterval) clearInterval(statusInterval);
+            }
+          } catch (error) {
+            logger.error(
+              { error, environmentId, userId: user.userId },
+              'Error broadcasting status'
+            );
+          }
+        })();
+      }, 5000);
+
+      // Handle close
+      socket.on('close', () => {
+        logger.info(
+          { environmentId, userId: user.userId, clientId },
+          'Status WebSocket disconnected'
+        );
+        if (statusInterval) clearInterval(statusInterval);
+        wsService.unregisterClient(clientId);
+      });
+
+      // Handle errors
+      socket.on('error', (error: Error) => {
+        logger.error(
+          { error, environmentId, userId: user.userId, clientId },
+          'Status WebSocket error'
+        );
+        if (statusInterval) clearInterval(statusInterval);
+        wsService.unregisterClient(clientId);
+      });
+    } catch (error) {
+      if (statusInterval) clearInterval(statusInterval);
+      throw error;
+    }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error({ error, environmentId }, 'Error setting up status stream');

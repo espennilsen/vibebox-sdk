@@ -3,7 +3,7 @@
  * View and manage single project with environments
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -48,14 +48,7 @@ export function ProjectDetail(): JSX.Element {
     diskLimit: 10240,
   });
 
-  useEffect(() => {
-    if (id) {
-      loadProjectData();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
-  const loadProjectData = async () => {
+  const loadProjectData = useCallback(async () => {
     if (!id) return;
 
     try {
@@ -72,7 +65,13 @@ export function ProjectDetail(): JSX.Element {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, notification]);
+
+  useEffect(() => {
+    if (id) {
+      loadProjectData();
+    }
+  }, [id, loadProjectData]);
 
   const handleCreateEnvironment = async () => {
     if (!id) return;

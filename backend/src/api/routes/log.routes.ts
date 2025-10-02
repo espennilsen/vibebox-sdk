@@ -5,10 +5,7 @@
  */
 import { FastifyInstance, RouteHandlerMethod } from 'fastify';
 import { LogService } from '@/services';
-import { LogStream } from '@prisma/client';
-
-// LogLevel is not a Prisma enum, define it locally
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+import { LogStream, LogLevel } from '@/types/prisma-enums';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { validate, patterns } from '../middleware/validation';
 import { rateLimits } from '../middleware/rateLimit';

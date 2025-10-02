@@ -64,6 +64,15 @@ export interface LogOptions {
 }
 
 /**
+ * Parsed log entry with metadata from Docker
+ */
+export interface DockerLogEntry {
+  stream: 'stdout' | 'stderr';
+  message: string;
+  timestamp: Date;
+}
+
+/**
  * DockerService - Manages Docker container operations
  *
  * Provides methods for creating, starting, stopping, and monitoring
@@ -472,6 +481,158 @@ export class DockerService {
         throw new InternalServerError(`Failed to get container logs: ${error.message}`);
       }
       throw new InternalServerError('Failed to get container logs');
+    }
+  }
+
+  /**
+   * Stream container logs in real-time with proper metadata parsing
+   *
+   * Streams container logs and properly parses Docker's multiplexed stream format
+   * to extract stream type (stdout/stderr) and timestamps from the actual Docker data.
+   *
+   * Docker log format:
+   * - With timestamps: "2023-01-01T12:00:00.000000000Z message text"
+   * - Stream header: 8-byte header with stream type in first byte (1=stdout, 2=stderr)
+   *
+   * @param containerId - Container ID
+   * @param callback - Callback function called for each parsed log entry
+   * @param options - Log options (timestamps should be true for accurate timing)
+   * @returns Function to stop streaming
+   * @throws {NotFoundError} If container doesn't exist
+   * @throws {InternalServerError} If Docker operation fails
+   *
+   * @example
+   * ```typescript
+   * const dockerService = new DockerService();
+   * const stopStreaming = await dockerService.streamContainerLogs(
+   *   'container-id-123',
+   *   (logEntry) => {
+   *     console.log(`[${logEntry.stream}] ${logEntry.timestamp}: ${logEntry.message}`);
+   *   },
+   *   { follow: true, timestamps: true }
+   * );
+   * // Later: stopStreaming();
+   * ```
+   */
+  async streamContainerLogs(
+    containerId: string,
+    callback: (logEntry: DockerLogEntry) => void,
+    options: LogOptions & { follow?: boolean } = {}
+  ): Promise<() => void> {
+    try {
+      const container = this.docker.getContainer(containerId);
+
+      const logOptions: Docker.ContainerLogsOptions & { follow: true } = {
+        stdout: options.stdout !== false,
+        stderr: options.stderr !== false,
+        tail: options.tail || 100,
+        since: options.since,
+        timestamps: options.timestamps !== false, // Default to true for accurate timestamps
+        follow: true, // Always follow for streaming
+      };
+
+      const stream = await container.logs(logOptions);
+
+      // Parse Docker's multiplexed stream format
+      // Format: [stream_type, 0, 0, 0, size_bytes(4)] + payload
+      // stream_type: 1=stdout, 2=stderr, 3=stdin
+      // Maintain a persistent buffer to handle frames split across TCP chunks
+      let buffer = Buffer.alloc(0);
+
+      stream.on('data', (chunk: Buffer) => {
+        try {
+          // Concatenate new data to existing buffer
+          buffer = Buffer.concat([buffer, chunk]);
+          let offset = 0;
+
+          while (buffer.length - offset >= 8) {
+            // Read stream type from first byte
+            const streamType = buffer[offset];
+            // Read payload size from bytes 4-7 (big-endian uint32)
+            const payloadSize = buffer.readUInt32BE(offset + 4);
+            const frameLength = 8 + payloadSize;
+
+            // Check if we have the complete frame (header + payload)
+            if (buffer.length - offset < frameLength) {
+              break;
+            }
+
+            // Extract payload
+            const payload = buffer.slice(offset + 8, offset + frameLength).toString('utf-8');
+            offset += frameLength;
+
+            // Determine stream type
+            const stream: 'stdout' | 'stderr' = streamType === 2 ? 'stderr' : 'stdout';
+
+            // Parse timestamp and message from payload
+            // Format: "2023-01-01T12:00:00.000000000Z message text"
+            let timestamp: Date;
+            let message: string;
+
+            if (options.timestamps !== false) {
+              // Extract timestamp (ISO 8601 format with nanoseconds)
+              const spaceIndex = payload.indexOf(' ');
+              if (spaceIndex > 0) {
+                const timestampStr = payload.substring(0, spaceIndex);
+                timestamp = new Date(timestampStr);
+                message = payload.substring(spaceIndex + 1);
+              } else {
+                // Fallback if no space found
+                timestamp = new Date();
+                message = payload;
+              }
+            } else {
+              timestamp = new Date();
+              message = payload;
+            }
+
+            // Trim newlines but preserve intentional line breaks
+            message = message.trimEnd();
+
+            if (message) {
+              callback({
+                stream,
+                message,
+                timestamp,
+              });
+            }
+          }
+
+          // Remove processed data from buffer, keep remainder for next chunk
+          if (offset > 0) {
+            buffer = buffer.slice(offset);
+          }
+        } catch (error) {
+          console.error('Error parsing Docker log stream:', error);
+        }
+      });
+
+      stream.on('end', () => {
+        if (buffer.length > 0) {
+          console.warn('Docker log stream ended with incomplete frame');
+        }
+      });
+
+      stream.on('error', (error) => {
+        console.error('Docker log stream error:', error);
+      });
+
+      // Return cleanup function
+      return () => {
+        const anyStream = stream as any;
+        if (anyStream && typeof anyStream.destroy === 'function') {
+          anyStream.destroy();
+        }
+      };
+    } catch (error) {
+      console.error('Docker stream container logs error:', error);
+      if (error instanceof Error && 'statusCode' in error && error.statusCode === 404) {
+        throw new NotFoundError('Container not found');
+      }
+      if (error instanceof Error) {
+        throw new InternalServerError(`Failed to stream container logs: ${error.message}`);
+      }
+      throw new InternalServerError('Failed to stream container logs');
     }
   }
 

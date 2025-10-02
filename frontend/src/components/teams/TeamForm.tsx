@@ -12,9 +12,11 @@ import {
   TextField,
   Button,
   Box,
+  Alert,
 } from '@mui/material';
 import type { Team, CreateTeamRequest, UpdateTeamRequest } from '@/types';
 import { useNotification } from '@/contexts/NotificationContext';
+import { ApiException } from '@/services/api';
 
 /**
  * Props for the TeamForm component
@@ -62,6 +64,7 @@ export function TeamForm({ open, team, onSubmit, onCancel }: TeamFormProps): JSX
   const [name, setName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   useEffect(() => {
     if (team) {
@@ -71,11 +74,13 @@ export function TeamForm({ open, team, onSubmit, onCancel }: TeamFormProps): JSX
       setName('');
       setDescription('');
     }
+    setErrorMessage(''); // Clear errors when opening dialog
   }, [team, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMessage(''); // Clear previous errors
 
     try {
       await onSubmit({
@@ -84,7 +89,24 @@ export function TeamForm({ open, team, onSubmit, onCancel }: TeamFormProps): JSX
       });
       handleClose();
     } catch (error) {
-      notification.error('Failed to save team. Please try again.');
+      // Extract user-friendly error message from API response
+      let userMessage = 'Failed to save team. Please try again.';
+
+      if (error instanceof ApiException) {
+        // Use the specific error message from the API
+        userMessage = error.message;
+
+        // For validation errors, provide more context
+        if (error.error === 'VALIDATION_ERROR' && error.details) {
+          const fieldErrors = Object.entries(error.details)
+            .map(([field, msg]) => `${field}: ${msg}`)
+            .join(', ');
+          userMessage = `Validation error: ${fieldErrors}`;
+        }
+      }
+
+      setErrorMessage(userMessage);
+      notification.error(userMessage);
       console.error('Form submission failed:', error);
     } finally {
       setLoading(false);
@@ -94,6 +116,7 @@ export function TeamForm({ open, team, onSubmit, onCancel }: TeamFormProps): JSX
   const handleClose = () => {
     setName('');
     setDescription('');
+    setErrorMessage('');
     onCancel();
   };
 
@@ -103,6 +126,11 @@ export function TeamForm({ open, team, onSubmit, onCancel }: TeamFormProps): JSX
         <DialogTitle>{team ? 'Edit Team' : 'Create Team'}</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            {errorMessage && (
+              <Alert severity="error" onClose={() => setErrorMessage('')}>
+                {errorMessage}
+              </Alert>
+            )}
             <TextField
               label="Name"
               value={name}

@@ -5,7 +5,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import type { LogEntry } from '@prisma/client';
-import { LogStream } from '@prisma/client';
+import { LogStream } from '@/types/prisma-enums';
 import { getPrismaClient } from '@/lib/db';
 import { DockerService } from './docker.service';
 import { NotFoundError, ForbiddenError } from '@/lib/errors';
@@ -332,6 +332,65 @@ export class LogService {
   }
 
   /**
+   * Stream logs in real-time with proper Docker metadata
+   *
+   * Streams container logs in real-time using Docker's native metadata.
+   * Returns actual stream type (stdout/stderr) and timestamps from Docker,
+   * not heuristic guesses based on content.
+   *
+   * @param environmentId - Environment ID
+   * @param callback - Callback function called for each log entry with real metadata
+   * @returns Function to stop streaming (unsubscribe)
+   * @throws {NotFoundError} If environment doesn't exist or has no container
+   *
+   * @example
+   * ```typescript
+   * const logService = new LogService();
+   * const unsubscribe = await logService.streamLogs('env-id-123', (log) => {
+   *   console.log(`[${log.stream}] ${log.timestamp.toISOString()}: ${log.message}`);
+   * });
+   * // Later: unsubscribe();
+   * ```
+   */
+  async streamLogs(
+    environmentId: string,
+    callback: (logEntry: { stream: LogStream; content: string; timestamp: Date }) => void
+  ): Promise<() => void> {
+    // Get environment (no user check for WebSocket - auth handled at connection)
+    const environment = await this.prisma.environment.findUnique({
+      where: { id: environmentId },
+    });
+
+    if (!environment) {
+      throw new NotFoundError('Environment not found');
+    }
+
+    if (!environment.containerId) {
+      throw new NotFoundError('Environment has no container');
+    }
+
+    // Start streaming logs from Docker with proper metadata parsing
+    const stopStreaming = await this.dockerService.streamContainerLogs(
+      environment.containerId,
+      (logEntry) => {
+        // Use Docker's actual metadata - no heuristics!
+        callback({
+          stream: logEntry.stream === 'stdout' ? LogStream.stdout : LogStream.stderr,
+          content: logEntry.message,
+          timestamp: logEntry.timestamp, // Real timestamp from Docker, not new Date()
+        });
+      },
+      {
+        follow: true,
+        tail: 100,
+        timestamps: true, // Critical: enables accurate timestamp extraction
+      }
+    );
+
+    return stopStreaming;
+  }
+
+  /**
    * Apply log retention policy
    *
    * Deletes logs older than retention period and enforces size limits
@@ -561,7 +620,7 @@ export class LogService {
     return {
       id: logEntry.id,
       timestamp: logEntry.timestamp,
-      stream: logEntry.stream,
+      stream: logEntry.stream as LogStream,
       message: logEntry.message,
     };
   }

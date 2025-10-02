@@ -68,6 +68,7 @@ export type {
 
 // Type exports from LogService
 export type { LogEntryDTO, PaginationInfo, PaginatedLogs, WriteLogData } from './log.service';
+export { LogStream } from '@/types/prisma-enums';
 
 // Type exports from WebSocketService
 export {

@@ -3,7 +3,7 @@
  * Comprehensive environment management with tabs
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -54,12 +54,32 @@ export function EnvironmentDetail(): JSX.Element {
   const [createSessionOpen, setCreateSessionOpen] = useState(false);
   const [deleteSessionDialog, setDeleteSessionDialog] = useState<TerminalSession | null>(null);
 
+  const loadEnvironmentData = useCallback(async () => {
+    if (!id) return;
+
+    try {
+      setLoading(true);
+      const [envData, sessionsData, extensionsData] = await Promise.all([
+        environmentsApi.getEnvironment(id),
+        sessionsApi.listSessions(id),
+        extensionsApi.listExtensions(id),
+      ]);
+      setEnvironment(envData);
+      setSessions(sessionsData);
+      setExtensions(extensionsData);
+    } catch (error) {
+      notification.error('Failed to load environment');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }, [id, notification]);
+
   useEffect(() => {
     if (id) {
       loadEnvironmentData();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, loadEnvironmentData]);
 
   // Subscribe to real-time environment status updates
   useWebSocket<EnvironmentStatusPayload>(
@@ -79,27 +99,6 @@ export function EnvironmentDetail(): JSX.Element {
     },
     [id]
   );
-
-  const loadEnvironmentData = async () => {
-    if (!id) return;
-
-    try {
-      setLoading(true);
-      const [envData, sessionsData, extensionsData] = await Promise.all([
-        environmentsApi.getEnvironment(id),
-        sessionsApi.listSessions(id),
-        extensionsApi.listExtensions(id),
-      ]);
-      setEnvironment(envData);
-      setSessions(sessionsData);
-      setExtensions(extensionsData);
-    } catch (error) {
-      notification.error('Failed to load environment');
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleAddPort = async (data: AddPortMappingRequest) => {
     if (!id) return;

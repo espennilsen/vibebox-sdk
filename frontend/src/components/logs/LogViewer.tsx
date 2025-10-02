@@ -3,7 +3,7 @@
  * Real-time log streaming with virtual scrolling
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Paper,
@@ -39,13 +39,7 @@ export function LogViewer({ environmentId }: LogViewerProps): JSX.Element {
   const listRef = useRef<List>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Load initial logs
-  useEffect(() => {
-    loadLogs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [environmentId]);
-
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     try {
       const data = await logsApi.getLogs({
         environmentId,
@@ -56,7 +50,12 @@ export function LogViewer({ environmentId }: LogViewerProps): JSX.Element {
       notification.error('Failed to load logs');
       console.error(error);
     }
-  };
+  }, [environmentId, notification]);
+
+  // Load initial logs
+  useEffect(() => {
+    loadLogs();
+  }, [loadLogs]);
 
   // Subscribe to real-time log updates
   useWebSocket<LogDataPayload>(

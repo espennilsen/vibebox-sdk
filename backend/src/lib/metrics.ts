@@ -23,7 +23,7 @@ export const httpRequestDuration = new client.Histogram({
   name: 'vibebox_http_request_duration_seconds',
   help: 'Duration of HTTP requests in seconds',
   labelNames: ['method', 'route', 'status_code'],
-  buckets: [0.001, 0.005, 0.015, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 1, 2, 5],
+  buckets: [0.1, 0.5, 1, 2, 5, 10],
   registers: [register],
 });
 
@@ -55,6 +55,17 @@ export const activeConnections = new client.Gauge({
 export const wsConnections = new client.Gauge({
   name: 'vibebox_websocket_connections',
   help: 'Number of active WebSocket connections',
+  registers: [register],
+});
+
+/**
+ * WebSocket Messages Counter
+ * Tracks the total number of WebSocket messages sent and received
+ */
+export const wsMessages = new client.Counter({
+  name: 'vibebox_websocket_messages_total',
+  help: 'Total number of WebSocket messages',
+  labelNames: ['direction', 'type'],
   registers: [register],
 });
 
@@ -365,6 +376,22 @@ export function trackWebSocketConnection(change: 1 | -1): void {
   } else {
     wsConnections.dec();
   }
+}
+
+/**
+ * Track WebSocket message metrics
+ *
+ * @param direction - Message direction ('sent' or 'received')
+ * @param type - Message type (e.g., 'log', 'terminal', 'status')
+ *
+ * @example
+ * ```typescript
+ * trackWebSocketMessage('sent', 'log');
+ * trackWebSocketMessage('received', 'terminal');
+ * ```
+ */
+export function trackWebSocketMessage(direction: 'sent' | 'received', type: string): void {
+  wsMessages.inc({ direction, type });
 }
 
 // Export the registry for testing

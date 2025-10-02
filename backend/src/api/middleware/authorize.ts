@@ -5,7 +5,7 @@
  */
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { PrismaClient } from '@prisma/client';
-import { UserTeamRole } from '@prisma/client';
+import { UserTeamRole } from '@/types/prisma-enums';
 import { getPrismaClient } from '@/lib/db';
 import { ForbiddenError } from '@/lib/errors';
 import { AuthenticatedRequest } from './auth';
@@ -123,6 +123,24 @@ class AuthorizationService {
     }
 
     return this.hasProjectAccess(userId, environment.projectId);
+  }
+
+  /**
+   * Check if user has any of the specified roles across any team
+   *
+   * @param userId - User ID
+   * @param roles - Array of roles to check
+   * @returns True if user has any of the specified roles
+   */
+  async hasAnyRole(userId: string, roles: UserTeamRole[]): Promise<boolean> {
+    const userTeams = await this.prisma.userTeam.findMany({
+      where: {
+        userId,
+        role: { in: roles },
+      },
+    });
+
+    return userTeams.length > 0;
   }
 }
 
@@ -261,6 +279,35 @@ export async function requireEnvironmentAccess(
   if (!hasAccess) {
     throw new ForbiddenError('You do not have access to this environment');
   }
+}
+
+/**
+ * Creates a middleware to check if user has one of the required roles across any team
+ *
+ * @param roles - Array of allowed roles
+ * @returns Middleware function
+ * @throws {ForbiddenError} If user doesn't have any of the required roles
+ *
+ * @example
+ * ```typescript
+ * fastify.get('/admin/metrics', {
+ *   preHandler: [authenticate, authorize(['admin'])]
+ * }, handler);
+ * ```
+ */
+export function authorize(roles: UserTeamRole[]) {
+  return async (request: FastifyRequest, _reply: FastifyReply): Promise<void> => {
+    const { user } = request as AuthenticatedRequest;
+
+    // Check if user has any of the required roles in any team
+    const hasRole = await authzService.hasAnyRole(user.userId, roles);
+
+    if (!hasRole) {
+      throw new ForbiddenError(
+        `This operation requires one of the following roles: ${roles.join(', ')}`
+      );
+    }
+  };
 }
 
 /**

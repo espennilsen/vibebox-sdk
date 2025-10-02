@@ -3,7 +3,7 @@
  * Main dashboard showing environment overview
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Box, Typography, Grid, Button, Card, CardContent, CardActions } from '@mui/material';
 import { Add, Folder } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -22,12 +22,7 @@ export function Dashboard(): JSX.Element {
   const [environments, setEnvironments] = useState<Record<string, Environment[]>>({});
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadDashboardData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       const projectsData = await projectsApi.listProjects();
       setProjects(projectsData);
@@ -50,7 +45,11 @@ export function Dashboard(): JSX.Element {
     } finally {
       setLoading(false);
     }
-  };
+  }, [notification]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   if (loading) {
     return <LoadingSpinner message="Loading dashboard..." />;
