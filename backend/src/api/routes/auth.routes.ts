@@ -49,9 +49,9 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       rateLimits.auth,
       validate({
         body: {
-          email: { type: 'string', required: true, pattern: patterns.email },
+          email: { type: 'string', required: true, pattern: patterns.email, sanitize: 'email' },
           password: { type: 'string', required: true, min: 8, max: 128 },
-          displayName: { type: 'string', required: true, min: 1, max: 100 },
+          displayName: { type: 'string', required: true, min: 1, max: 100, sanitize: 'string' },
         },
       }),
     ],
@@ -84,7 +84,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       rateLimits.login, // Brute force protection: 5 attempts per 15 min
       validate({
         body: {
-          email: { type: 'string', required: true, pattern: patterns.email },
+          email: { type: 'string', required: true, pattern: patterns.email, sanitize: 'email' },
           password: { type: 'string', required: true },
         },
       }),

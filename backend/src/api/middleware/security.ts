@@ -31,7 +31,7 @@ export interface SecurityHeadersConfig {
    * Enable X-Frame-Options
    * Prevents clickjacking attacks
    */
-  frameOptions?: 'DENY' | 'SAMEORIGIN' | string;
+  frameOptions?: 'DENY' | 'SAMEORIGIN';
 
   /**
    * Enable X-Content-Type-Options
