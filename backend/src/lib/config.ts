@@ -67,6 +67,12 @@ export interface Config {
   // Logging
   logLevel: string;
 
+  // Security
+  security: {
+    enableSecurityHeaders: boolean;
+    cspDirective?: string;
+  };
+
   // Computed flags
   isDevelopment: boolean;
   isProduction: boolean;
@@ -192,6 +198,12 @@ export async function loadConfig(): Promise<Config> {
       // Logging
       logLevel: process.env.LOG_LEVEL || 'info',
 
+      // Security
+      security: {
+        enableSecurityHeaders: process.env.ENABLE_SECURITY_HEADERS !== 'false',
+        cspDirective: process.env.CSP_DIRECTIVE,
+      },
+
       // Computed flags
       isDevelopment: process.env.NODE_ENV === 'development',
       isProduction: process.env.NODE_ENV === 'production',
@@ -283,6 +295,12 @@ export const config: Config = {
 
   // Logging
   logLevel: process.env.LOG_LEVEL || 'info',
+
+  // Security
+  security: {
+    enableSecurityHeaders: process.env.ENABLE_SECURITY_HEADERS !== 'false',
+    cspDirective: process.env.CSP_DIRECTIVE,
+  },
 
   // Computed flags
   isDevelopment: process.env.NODE_ENV === 'development',

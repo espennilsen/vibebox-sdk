@@ -1,7 +1,7 @@
 /**
  * Rate Limiting Middleware
- * Configuration for rate limiting across different route groups
- * Task: Phase 3.5 - API Layer
+ * Configuration for rate limiting across different route groups with brute force protection
+ * Task: Phase 3.5 - API Layer + Security Hardening
  */
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { TooManyRequestsError } from '@/lib/errors';
@@ -89,6 +89,13 @@ class RateLimitStore {
       }
     }
   }
+
+  /**
+   * Clear all entries (useful for testing)
+   */
+  clear(): void {
+    this.store.clear();
+  }
 }
 
 // Global rate limit store
@@ -96,6 +103,13 @@ const store = new RateLimitStore();
 
 // Cleanup expired entries every minute
 setInterval(() => store.cleanup(), 60000);
+
+/**
+ * Clear rate limit store (for testing)
+ */
+export function clearRateLimitStore(): void {
+  store.clear();
+}
 
 /**
  * Create rate limit middleware
@@ -135,18 +149,138 @@ export function createRateLimit(config: RateLimitConfig) {
 }
 
 /**
+ * Create IP-based rate limit (doesn't use user ID)
+ *
+ * @param config - Rate limit configuration
+ * @returns Rate limit middleware that only uses IP address
+ *
+ * @example
+ * ```typescript
+ * const ipLimit = createIPRateLimit({ max: 100, timeWindow: 60000 });
+ * ```
+ */
+export function createIPRateLimit(config: RateLimitConfig) {
+  return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const key = `ip:${request.ip || 'unknown'}`;
+    const allowed = store.check(key, config);
+
+    // Add rate limit headers
+    const remaining = store.getRemaining(key, config);
+    const resetAt = store.getResetAt(key);
+
+    reply.header('X-RateLimit-Limit', config.max);
+    reply.header('X-RateLimit-Remaining', remaining ?? config.max);
+    if (resetAt) {
+      reply.header('X-RateLimit-Reset', Math.ceil(resetAt / 1000));
+    }
+
+    if (!allowed) {
+      const retryAfter = resetAt ? Math.ceil((resetAt - Date.now()) / 1000) : 60;
+      reply.header('Retry-After', retryAfter);
+      throw new TooManyRequestsError('Rate limit exceeded. Please try again later.');
+    }
+  };
+}
+
+/**
+ * Composite rate limit middleware that enforces multiple limits
+ *
+ * @param limits - Array of rate limit configurations to enforce
+ * @returns Composite rate limit middleware
+ *
+ * @example
+ * ```typescript
+ * const dualLimit = createCompositeRateLimit([
+ *   { max: 100, timeWindow: 60000 },  // 100/min
+ *   { max: 1000, timeWindow: 3600000 } // 1000/hour
+ * ]);
+ * ```
+ */
+export function createCompositeRateLimit(limits: RateLimitConfig[]) {
+  return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    // Validate limits array is not empty
+    if (limits.length === 0) {
+      throw new Error('At least one rate limit configuration is required');
+    }
+
+    // Use user ID if authenticated, otherwise use IP address
+    const baseKey =
+      (request as { user?: { userId: string } }).user?.userId || request.ip || 'unknown';
+
+    let minRemaining = Infinity;
+    let limitToReport = limits[0];
+    let resetToReport: number | null = null;
+
+    // Execute all rate limit checks with unique keys per config
+    for (const config of limits) {
+      const key = `${baseKey}:${config.timeWindow}`;
+      const allowed = store.check(key, config);
+
+      // Track the most restrictive limit
+      const remaining = store.getRemaining(key, config);
+      const resetAt = store.getResetAt(key);
+
+      if (remaining !== null && remaining < minRemaining) {
+        minRemaining = remaining;
+        limitToReport = config;
+        resetToReport = resetAt;
+      }
+
+      if (!allowed) {
+        const retryAfter = resetAt ? Math.ceil((resetAt - Date.now()) / 1000) : 60;
+        reply.header('Retry-After', retryAfter);
+        throw new TooManyRequestsError('Rate limit exceeded. Please try again later.');
+      }
+    }
+
+    // Set headers based on the most restrictive limit
+    // limitToReport is guaranteed to be defined because we check limits.length > 0
+    reply.header('X-RateLimit-Limit', limitToReport!.max);
+    reply.header(
+      'X-RateLimit-Remaining',
+      minRemaining === Infinity ? limitToReport!.max : minRemaining
+    );
+    if (resetToReport) {
+      reply.header('X-RateLimit-Reset', Math.ceil(resetToReport / 1000));
+    }
+  };
+}
+
+/**
  * Pre-configured rate limits for different endpoint types
  */
 export const rateLimits = {
   /**
-   * Strict rate limit for authentication endpoints (5 requests per minute)
+   * Strict rate limit for login endpoint (5 requests per 15 minutes)
+   * Provides brute force protection
+   */
+  login: createIPRateLimit({ max: 5, timeWindow: 15 * 60 * 1000 }), // 15 minutes
+
+  /**
+   * Standard rate limit for authentication endpoints (5 requests per minute)
    */
   auth: createRateLimit({ max: 5, timeWindow: 60000 }),
 
   /**
-   * Standard rate limit for API endpoints (100 requests per minute)
+   * Per-IP rate limit (100 requests per minute)
+   * Applied globally to all endpoints
    */
-  api: createRateLimit({ max: 100, timeWindow: 60000 }),
+  perIP: createIPRateLimit({ max: 100, timeWindow: 60000 }),
+
+  /**
+   * Per-user rate limit (1000 requests per hour)
+   * Applied to authenticated endpoints
+   */
+  perUser: createRateLimit({ max: 1000, timeWindow: 3600000 }), // 1 hour
+
+  /**
+   * Combined per-IP and per-user limits for API endpoints
+   * 100 req/min per IP, 1000 req/hour per user
+   */
+  api: createCompositeRateLimit([
+    { max: 100, timeWindow: 60000 }, // Per IP/user per minute
+    { max: 1000, timeWindow: 3600000 }, // Per user per hour
+  ]),
 
   /**
    * Relaxed rate limit for read operations (200 requests per minute)
