@@ -2,6 +2,7 @@
  * ESLint Configuration - ESLint 9 Flat Config Format
  * Backend linting rules for TypeScript
  */
+import globals from 'globals';
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
 import prettier from 'eslint-plugin-prettier';
@@ -29,18 +30,7 @@ export default [
         tsconfigRootDir: import.meta.dirname,
       },
       globals: {
-        console: 'readonly',
-        process: 'readonly',
-        Buffer: 'readonly',
-        __dirname: 'readonly',
-        __filename: 'readonly',
-        module: 'readonly',
-        require: 'readonly',
-        exports: 'readonly',
-        setTimeout: 'readonly',
-        setInterval: 'readonly',
-        clearTimeout: 'readonly',
-        clearInterval: 'readonly',
+        ...globals.node,
       },
     },
     plugins: {
