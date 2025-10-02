@@ -51,12 +51,6 @@ export default [
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-floating-promises': 'error',
       'no-console': ['warn', { allow: ['warn', 'error'] }],
-      // Disable strict type checking for external libraries with incomplete types (Prisma, Dockerode)
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/no-unsafe-call': 'off',
-      '@typescript-eslint/no-unsafe-member-access': 'off',
-      '@typescript-eslint/no-unsafe-return': 'off',
-      '@typescript-eslint/no-unsafe-argument': 'off',
       // Allow async methods without await (some are for interface consistency)
       '@typescript-eslint/require-await': 'warn',
       // Allow Promise.reject() with non-Error values
@@ -65,6 +59,27 @@ export default [
       '@typescript-eslint/no-redundant-type-constituents': 'warn',
       // Allow enum comparisons between our enums and Prisma string literals
       '@typescript-eslint/no-unsafe-enum-comparison': 'off',
+    },
+  },
+  // File-specific overrides for Prisma, Dockerode, WebSocket, and secret manager SDKs
+  {
+    files: [
+      'src/lib/db.ts',
+      'src/lib/secrets/**/*.ts',
+      'src/services/**/*.ts',
+      'src/api/routes/**/*.ts',
+      'src/api/middleware/**/*.ts',
+      'src/api/websocket/**/*.ts',
+      'prisma/**/*',
+    ],
+    rules: {
+      // Disable strict type checking for external libraries with incomplete types
+      // (Prisma, Dockerode, WebSocket, Azure KeyVault, Kubernetes, Vault)
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
     },
   },
 ];
