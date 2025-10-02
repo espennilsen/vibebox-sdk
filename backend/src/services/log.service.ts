@@ -422,7 +422,8 @@ export class LogService {
       },
     });
 
-    // Process each environment for size limits
+    // Process each environment for size limits using database aggregation
+    // This avoids loading all logs into memory which can cause OOM errors
     const environments = await this.prisma.environment.findMany({
       select: { id: true },
     });
@@ -430,45 +431,42 @@ export class LogService {
     let deletedBySize = 0;
 
     for (const env of environments) {
-      // Calculate total log size for environment (approximate)
-      const logs = await this.prisma.logEntry.findMany({
-        where: { environmentId: env.id },
-        select: { message: true },
-      });
+      // Use database aggregation to calculate total log size without loading all data
+      const sizeResult = await this.prisma.$queryRaw<Array<{ totalSize: bigint; count: bigint }>>`
+        SELECT
+          COALESCE(SUM(LENGTH(message)), 0)::bigint as "totalSize",
+          COUNT(*)::bigint as count
+        FROM "log_entries"
+        WHERE "environment_id" = ${env.id}
+      `;
 
-      const totalSizeBytes = logs.reduce((sum, log) => sum + log.message.length, 0);
+      const totalSizeBytes = Number(sizeResult[0]?.totalSize ?? 0);
       const totalSizeMB = totalSizeBytes / (1024 * 1024);
 
-      // If over limit, delete oldest logs
+      // If over limit, delete oldest logs using a subquery approach
       if (totalSizeMB > LOG_SIZE_LIMIT_MB) {
-        const excessMB = totalSizeMB - LOG_SIZE_LIMIT_MB;
-        const bytesToDelete = Math.ceil(excessMB * 1024 * 1024);
+        const bytesToDelete = Math.ceil((totalSizeMB - LOG_SIZE_LIMIT_MB) * 1024 * 1024);
 
-        // Get oldest logs until we've deleted enough
-        let deletedBytes = 0;
-        const logsToDelete: string[] = [];
+        // Use a CTE with running total to identify logs to delete in a single query
+        // This avoids loading all logs into memory
+        const deleted = await this.prisma.$executeRaw<number>`
+          DELETE FROM "log_entries"
+          WHERE id IN (
+            WITH ordered_logs AS (
+              SELECT
+                id,
+                LENGTH(message) as size,
+                SUM(LENGTH(message)) OVER (ORDER BY timestamp ASC) as running_size
+              FROM "log_entries"
+              WHERE "environment_id" = ${env.id}
+              ORDER BY timestamp ASC
+            )
+            SELECT id FROM ordered_logs
+            WHERE running_size <= ${bytesToDelete}
+          )
+        `;
 
-        const oldestLogs = await this.prisma.logEntry.findMany({
-          where: { environmentId: env.id },
-          orderBy: { timestamp: 'asc' },
-        });
-
-        for (const log of oldestLogs) {
-          logsToDelete.push(log.id);
-          deletedBytes += log.message.length;
-          if (deletedBytes >= bytesToDelete) {
-            break;
-          }
-        }
-
-        // Delete identified logs
-        const result = await this.prisma.logEntry.deleteMany({
-          where: {
-            id: { in: logsToDelete },
-          },
-        });
-
-        deletedBySize += result.count;
+        deletedBySize += deleted;
       }
     }
 

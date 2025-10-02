@@ -5,7 +5,6 @@
  */
 import { PrismaClient } from '@prisma/client';
 import { EnvironmentStatus, Protocol } from '@/types/prisma-enums';
-import type { Environment } from '@prisma/client';
 import { getPrismaClient } from '@/lib/db';
 import { DockerService } from './docker.service';
 import {
@@ -210,11 +209,37 @@ export class EnvironmentService {
   async getEnvironmentById(environmentId: string, userId: string): Promise<EnvironmentDTO> {
     const environment = await this.prisma.environment.findUnique({
       where: { id: environmentId },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        projectId: true,
+        creatorId: true,
+        baseImage: true,
+        containerId: true,
+        status: true,
+        errorMessage: true,
+        cpuLimit: true,
+        memoryLimit: true,
+        storageLimit: true,
+        createdAt: true,
+        updatedAt: true,
+        startedAt: true,
+        stoppedAt: true,
         project: {
-          include: {
-            owner: true,
-            team: { include: { userTeams: true } },
+          select: {
+            id: true,
+            ownerId: true,
+            teamId: true,
+            team: {
+              select: {
+                userTeams: {
+                  where: { userId },
+                  select: { userId: true },
+                },
+              },
+            },
           },
         },
       },
@@ -677,7 +702,19 @@ export class EnvironmentService {
     // Check if project exists and user has access
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
-      include: { owner: true, team: { include: { userTeams: true } } },
+      select: {
+        id: true,
+        ownerId: true,
+        teamId: true,
+        team: {
+          select: {
+            userTeams: {
+              where: { userId },
+              select: { userId: true },
+            },
+          },
+        },
+      },
     });
 
     if (!project) {
@@ -688,14 +725,34 @@ export class EnvironmentService {
 
     const skip = (page - 1) * limit;
 
+    // Use select to fetch only needed fields for list view
     const environments = await this.prisma.environment.findMany({
       where: { projectId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        projectId: true,
+        creatorId: true,
+        baseImage: true,
+        containerId: true,
+        status: true,
+        errorMessage: true,
+        cpuLimit: true,
+        memoryLimit: true,
+        storageLimit: true,
+        createdAt: true,
+        updatedAt: true,
+        startedAt: true,
+        stoppedAt: true,
+      },
       skip,
       take: limit,
       orderBy: { createdAt: 'desc' },
     });
 
-    return environments.map((e) => this.toEnvironmentDTO(e));
+    return environments.map((e): EnvironmentDTO => this.toEnvironmentDTO(e));
   }
 
   /**
@@ -1092,9 +1149,31 @@ export class EnvironmentService {
   /**
    * Convert Environment entity to EnvironmentDTO
    *
+   * Accepts either a full Environment entity or a partial object containing
+   * all required DTO fields. This allows the method to work with both
+   * complete Prisma entities and custom select queries.
+   *
    * @private
    */
-  private toEnvironmentDTO(environment: Environment): EnvironmentDTO {
+  private toEnvironmentDTO(environment: {
+    id: string;
+    name: string;
+    slug: string;
+    description?: string | null;
+    projectId: string;
+    creatorId: string;
+    baseImage: string;
+    containerId?: string | null;
+    status: EnvironmentStatus;
+    errorMessage?: string | null;
+    cpuLimit: number | any; // Prisma Decimal type
+    memoryLimit: number;
+    storageLimit: number;
+    createdAt: Date;
+    updatedAt: Date;
+    startedAt?: Date | null;
+    stoppedAt?: Date | null;
+  }): EnvironmentDTO {
     return {
       id: environment.id,
       name: environment.name,

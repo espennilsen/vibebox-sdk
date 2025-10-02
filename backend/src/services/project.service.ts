@@ -45,6 +45,23 @@ export interface UpdateProjectData {
 }
 
 /**
+ * Type-safe subset of Project fields needed for DTO conversion
+ * Ensures selected fields in queries match what toProjectDTO expects
+ */
+type ProjectForDTO = Pick<
+  Project,
+  | 'id'
+  | 'name'
+  | 'slug'
+  | 'description'
+  | 'ownerId'
+  | 'teamId'
+  | 'isArchived'
+  | 'createdAt'
+  | 'updatedAt'
+>;
+
+/**
  * ProjectService - Manages projects and their lifecycle
  *
  * Provides methods for creating and managing projects, handling ownership
@@ -444,7 +461,7 @@ export class ProjectService {
   ): Promise<ProjectDTO[]> {
     const skip = (page - 1) * limit;
 
-    // Get user's team IDs
+    // Get user's team IDs with optimized query
     const userTeams = await this.prisma.userTeam.findMany({
       where: { userId },
       select: { teamId: true },
@@ -452,11 +469,22 @@ export class ProjectService {
 
     const teamIds = userTeams.map((ut) => ut.teamId);
 
-    // Get projects (owned by user OR in user's teams)
+    // Get projects with select to avoid fetching unnecessary fields
     const projects = await this.prisma.project.findMany({
       where: {
         OR: [{ ownerId: userId }, { teamId: { in: teamIds } }],
         ...(includeArchived ? {} : { isArchived: false }),
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        ownerId: true,
+        teamId: true,
+        isArchived: true,
+        createdAt: true,
+        updatedAt: true,
       },
       skip,
       take: limit,
@@ -498,7 +526,7 @@ export class ProjectService {
     page: number = 1,
     limit: number = 20
   ): Promise<ProjectDTO[]> {
-    // Check if user is team member
+    // Check if user is team member (minimal select)
     const membership = await this.prisma.userTeam.findUnique({
       where: {
         userId_teamId: {
@@ -506,6 +534,7 @@ export class ProjectService {
           teamId,
         },
       },
+      select: { id: true },
     });
 
     if (!membership) {
@@ -514,10 +543,22 @@ export class ProjectService {
 
     const skip = (page - 1) * limit;
 
+    // Use select to fetch only needed fields
     const projects = await this.prisma.project.findMany({
       where: {
         teamId,
         ...(includeArchived ? {} : { isArchived: false }),
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        ownerId: true,
+        teamId: true,
+        isArchived: true,
+        createdAt: true,
+        updatedAt: true,
       },
       skip,
       take: limit,
@@ -584,7 +625,11 @@ export class ProjectService {
    * @param project - Project entity from database
    * @returns Project DTO
    */
-  private toProjectDTO(project: Project): ProjectDTO {
+  /**
+   * Convert Project entity or selected fields to ProjectDTO
+   * Accepts ProjectForDTO to ensure type-safe usage with Prisma select queries
+   */
+  private toProjectDTO(project: ProjectForDTO): ProjectDTO {
     return {
       id: project.id,
       name: project.name,

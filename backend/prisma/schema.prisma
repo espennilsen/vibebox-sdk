@@ -70,7 +70,9 @@ model UserTeam {
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@unique([userId, teamId])
+  @@index([userId])
   @@index([teamId])
+  @@index([userId, role])
   @@map("user_teams")
 }
 
@@ -101,6 +103,8 @@ model Project {
   @@unique([slug, teamId])
   @@index([ownerId])
   @@index([teamId])
+  @@index([teamId, isArchived])
+  @@index([ownerId, isArchived])
   @@map("projects")
 }
 
@@ -138,6 +142,8 @@ model Environment {
   @@index([creatorId])
   @@index([status])
   @@index([containerId])
+  @@index([creatorId, status])
+  @@index([projectId, status])
   @@map("environments")
 }
 
@@ -210,6 +216,7 @@ model Session {
   @@index([environmentId])
   @@index([status])
   @@index([lastActivityAt])
+  @@index([environmentId, status])
   @@map("sessions")
 }
 
@@ -263,6 +270,8 @@ model EnvironmentExtension {
   extension   Extension   @relation(fields: [extensionId], references: [id], onDelete: Cascade)
 
   @@unique([environmentId, extensionId])
+  @@index([environmentId])
+  @@index([extensionId])
   @@index([status])
   @@map("environment_extensions")
 }
