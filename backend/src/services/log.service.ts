@@ -620,7 +620,7 @@ export class LogService {
     return {
       id: logEntry.id,
       timestamp: logEntry.timestamp,
-      stream: logEntry.stream as LogStream,
+      stream: logEntry.stream,
       message: logEntry.message,
     };
   }
