@@ -148,10 +148,7 @@ interface SanitizationUtils {
   url(input: string): string;
   sql(input: string): string;
   filename(input: string): string;
-  object<T extends Record<string, unknown>>(
-    obj: T,
-    sanitizer?: (input: string) => string
-  ): T;
+  object<T extends Record<string, unknown>>(obj: T, sanitizer?: (input: string) => string): T;
 }
 
 /**
@@ -288,22 +285,21 @@ export const sanitize: SanitizationUtils = {
    * @param sanitizer - Sanitization function to apply (default: string)
    * @returns Sanitized object
    */
-  object<T extends Record<string, unknown>>(
-    obj: T,
-    sanitizer: (input: string) => string = sanitize.string
-  ): T {
+  object<T extends Record<string, unknown>>(obj: T, sanitizer?: (input: string) => string): T {
+    // Use string sanitizer as default
+    const sanitizeFn = sanitizer || ((input: string) => sanitize.string(input));
     const result: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(obj)) {
       if (typeof value === 'string') {
-        result[key] = sanitizer(value);
+        result[key] = sanitizeFn(value);
       } else if (Array.isArray(value)) {
-        result[key] = value.map((item) => (typeof item === 'string' ? sanitizer(item) : item));
+        result[key] = value.map((item) => (typeof item === 'string' ? sanitizeFn(item) : item));
       } else if (value instanceof Date) {
         // Preserve Date objects
         result[key] = value;
       } else if (value && typeof value === 'object') {
-        result[key] = sanitize.object(value as Record<string, unknown>, sanitizer);
+        result[key] = sanitize.object(value as Record<string, unknown>, sanitizeFn);
       } else {
         result[key] = value;
       }
