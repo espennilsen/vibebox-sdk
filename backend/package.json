@@ -43,8 +43,6 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@eslint/config-array": "^0.19.2",
-    "@eslint/object-schema": "^2.1.6",
     "@types/bcrypt": "^5.0.2",
     "@types/dockerode": "^3.3.44",
     "@types/node": "^22.2.0",
