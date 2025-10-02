@@ -3,7 +3,7 @@
  * List and manage projects
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Box, Typography, Button, Grid, TextField, InputAdornment } from '@mui/material';
 import { Add, Search } from '@mui/icons-material';
 import { projectsApi, environmentsApi } from '@/services/api';
@@ -29,12 +29,7 @@ export function Projects(): JSX.Element {
 
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  useEffect(() => {
-    loadProjects();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     try {
       setLoading(true);
       const data = await projectsApi.listProjects();
@@ -55,7 +50,11 @@ export function Projects(): JSX.Element {
     } finally {
       setLoading(false);
     }
-  };
+  }, [notification]);
+
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
 
   const handleCreate = async (data: CreateProjectRequest) => {
     try {
