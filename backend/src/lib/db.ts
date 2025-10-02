@@ -4,7 +4,6 @@
  */
 import { PrismaClient } from '@prisma/client';
 
-// eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
 let prismaInstance: PrismaClient | undefined;
 
 /**
@@ -24,7 +23,6 @@ let prismaInstance: PrismaClient | undefined;
  */
 export function getPrismaClient(): PrismaClient {
   if (!prismaInstance) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
     prismaInstance = new PrismaClient({
       log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
     });
@@ -47,7 +45,6 @@ export function getPrismaClient(): PrismaClient {
  */
 export async function disconnectDb(): Promise<void> {
   if (prismaInstance) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     await prismaInstance.$disconnect();
     prismaInstance = undefined;
   }

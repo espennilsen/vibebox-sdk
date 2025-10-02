@@ -10,6 +10,8 @@ import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { requireEnvironmentAccess, requireProjectAccess } from '../middleware/authorize';
 import { validate, patterns } from '../middleware/validation';
 import { rateLimits } from '../middleware/rateLimit';
+import { checkUserQuota, checkTeamQuota, validateResourceLimits } from '../middleware/quotas';
+import { RESOURCE_LIMITS } from '@/lib/constants';
 
 /**
  * Register environment routes
@@ -77,11 +79,26 @@ export async function environmentRoutes(fastify: FastifyInstance): Promise<void>
           description: { type: 'string', max: 1000 },
           projectId: { type: 'string', required: true, pattern: patterns.uuid },
           baseImage: { type: 'string', required: true, min: 1, max: 255 },
-          cpuLimit: { type: 'number', min: 0.1, max: 16 },
-          memoryLimit: { type: 'number', min: 128, max: 32768 },
-          storageLimit: { type: 'number', min: 1024, max: 102400 },
+          cpuLimit: {
+            type: 'number',
+            min: RESOURCE_LIMITS.CPU.MIN,
+            max: RESOURCE_LIMITS.CPU.MAX,
+          },
+          memoryLimit: {
+            type: 'number',
+            min: RESOURCE_LIMITS.MEMORY.MIN,
+            max: RESOURCE_LIMITS.MEMORY.MAX,
+          },
+          storageLimit: {
+            type: 'number',
+            min: RESOURCE_LIMITS.STORAGE.MIN,
+            max: RESOURCE_LIMITS.STORAGE.MAX,
+          },
         },
       }),
+      checkUserQuota,
+      checkTeamQuota,
+      validateResourceLimits,
     ],
     handler: createEnvironmentHandler,
   });
@@ -177,9 +194,21 @@ export async function environmentRoutes(fastify: FastifyInstance): Promise<void>
           name: { type: 'string', min: 1, max: 100 },
           slug: { type: 'string', pattern: patterns.slug },
           description: { type: 'string', max: 1000 },
-          cpuLimit: { type: 'number', min: 0.1, max: 16 },
-          memoryLimit: { type: 'number', min: 128, max: 32768 },
-          storageLimit: { type: 'number', min: 1024, max: 102400 },
+          cpuLimit: {
+            type: 'number',
+            min: RESOURCE_LIMITS.CPU.MIN,
+            max: RESOURCE_LIMITS.CPU.MAX,
+          },
+          memoryLimit: {
+            type: 'number',
+            min: RESOURCE_LIMITS.MEMORY.MIN,
+            max: RESOURCE_LIMITS.MEMORY.MAX,
+          },
+          storageLimit: {
+            type: 'number',
+            min: RESOURCE_LIMITS.STORAGE.MIN,
+            max: RESOURCE_LIMITS.STORAGE.MAX,
+          },
         },
       }),
       requireEnvironmentAccess,
