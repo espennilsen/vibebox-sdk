@@ -89,6 +89,13 @@ class RateLimitStore {
       }
     }
   }
+
+  /**
+   * Clear all entries (useful for testing)
+   */
+  clear(): void {
+    this.store.clear();
+  }
 }
 
 // Global rate limit store
@@ -96,6 +103,13 @@ const store = new RateLimitStore();
 
 // Cleanup expired entries every minute
 setInterval(() => store.cleanup(), 60000);
+
+/**
+ * Clear rate limit store (for testing)
+ */
+export function clearRateLimitStore(): void {
+  store.clear();
+}
 
 /**
  * Create rate limit middleware
@@ -183,12 +197,45 @@ export function createIPRateLimit(config: RateLimitConfig) {
  * ```
  */
 export function createCompositeRateLimit(limits: RateLimitConfig[]) {
-  const limitMiddlewares = limits.map((config) => createRateLimit(config));
-
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-    // Execute all rate limit checks
-    for (const middleware of limitMiddlewares) {
-      await middleware(request, reply);
+    // Use user ID if authenticated, otherwise use IP address
+    const baseKey =
+      (request as { user?: { userId: string } }).user?.userId || request.ip || 'unknown';
+
+    let minRemaining = Infinity;
+    let limitToReport = limits[0];
+    let resetToReport: number | null = null;
+
+    // Execute all rate limit checks with unique keys per config
+    for (const config of limits) {
+      const key = `${baseKey}:${config.timeWindow}`;
+      const allowed = store.check(key, config);
+
+      // Track the most restrictive limit
+      const remaining = store.getRemaining(key, config);
+      const resetAt = store.getResetAt(key);
+
+      if (remaining !== null && remaining < minRemaining) {
+        minRemaining = remaining;
+        limitToReport = config;
+        resetToReport = resetAt;
+      }
+
+      if (!allowed) {
+        const retryAfter = resetAt ? Math.ceil((resetAt - Date.now()) / 1000) : 60;
+        reply.header('Retry-After', retryAfter);
+        throw new TooManyRequestsError('Rate limit exceeded. Please try again later.');
+      }
+    }
+
+    // Set headers based on the most restrictive limit
+    reply.header('X-RateLimit-Limit', limitToReport.max);
+    reply.header(
+      'X-RateLimit-Remaining',
+      minRemaining === Infinity ? limitToReport.max : minRemaining
+    );
+    if (resetToReport) {
+      reply.header('X-RateLimit-Reset', Math.ceil(resetToReport / 1000));
     }
   };
 }

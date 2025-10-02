@@ -50,7 +50,10 @@ function validateField(value: unknown, rules: FieldRule, fieldName: string): unk
   let processedValue = value;
 
   // Required check
-  if (rules.required && (processedValue === undefined || processedValue === null || processedValue === '')) {
+  if (
+    rules.required &&
+    (processedValue === undefined || processedValue === null || processedValue === '')
+  ) {
     throw new ValidationError(`${fieldName} is required`);
   }
 

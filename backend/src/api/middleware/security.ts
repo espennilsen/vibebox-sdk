@@ -158,6 +158,7 @@ export const sanitize = {
         // Remove null bytes
         .replace(/\0/g, '')
         // Remove control characters except newline, carriage return, tab
+        // eslint-disable-next-line no-control-regex
         .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
         // Trim whitespace
         .trim()
@@ -233,7 +234,7 @@ export const sanitize = {
       return '';
     }
 
-    return input.replace(/['";\\]/g, '');
+    return input.replace(/['";\\]/g, '').replace(/--/g, '-'); // Remove SQL comment markers
   },
 
   /**
@@ -251,9 +252,12 @@ export const sanitize = {
       input
         // Remove path separators
         .replace(/[/\\]/g, '')
+        // Remove path traversal attempts (../)
+        .replace(/\.\./g, '')
         // Remove null bytes
         .replace(/\0/g, '')
         // Remove control characters
+        // eslint-disable-next-line no-control-regex
         .replace(/[\x00-\x1F\x7F]/g, '')
         // Replace spaces with underscores
         .replace(/\s+/g, '_')
@@ -280,9 +284,10 @@ export const sanitize = {
       if (typeof value === 'string') {
         result[key] = sanitizer(value);
       } else if (Array.isArray(value)) {
-        result[key] = value.map((item) =>
-          typeof item === 'string' ? sanitizer(item) : item
-        );
+        result[key] = value.map((item) => (typeof item === 'string' ? sanitizer(item) : item));
+      } else if (value instanceof Date) {
+        // Preserve Date objects
+        result[key] = value;
       } else if (value && typeof value === 'object') {
         result[key] = sanitize.object(value as Record<string, unknown>, sanitizer);
       } else {

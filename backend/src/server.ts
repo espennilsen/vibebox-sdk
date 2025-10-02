@@ -31,22 +31,23 @@ export async function createServer() {
   // Register CORS plugin with enhanced security
   const allowedOrigins = getAllowedOrigins();
   await fastify.register(cors, {
-    origin: allowedOrigins.length > 0
-      ? (origin, callback) => {
-          // Allow requests with no origin (same-origin, mobile apps, etc.)
-          if (!origin) {
-            callback(null, true);
-            return;
-          }
+    origin:
+      allowedOrigins.length > 0
+        ? (origin, callback) => {
+            // Allow requests with no origin (same-origin, mobile apps, etc.)
+            if (!origin) {
+              callback(null, true);
+              return;
+            }
 
-          // Check if origin is in the allowed list
-          if (allowedOrigins.includes(origin)) {
-            callback(null, true);
-          } else {
-            callback(new Error('Not allowed by CORS'));
+            // Check if origin is in the allowed list
+            if (allowedOrigins.includes(origin)) {
+              callback(null, true);
+            } else {
+              callback(new Error('Not allowed by CORS'));
+            }
           }
-        }
-      : config.frontendUrl, // Fallback to simple origin in development
+        : config.frontendUrl, // Fallback to simple origin in development
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],

@@ -9,6 +9,7 @@ import {
   createIPRateLimit,
   createCompositeRateLimit,
   rateLimits,
+  clearRateLimitStore,
 } from '@/api/middleware/rateLimit';
 import { TooManyRequestsError } from '@/lib/errors';
 
@@ -18,6 +19,9 @@ describe('Rate Limiting Middleware', () => {
   let headers: Record<string, string | number>;
 
   beforeEach(() => {
+    // Clear rate limit store to prevent state pollution between tests
+    clearRateLimitStore();
+
     headers = {};
     mockRequest = {
       ip: '192.168.1.100',
