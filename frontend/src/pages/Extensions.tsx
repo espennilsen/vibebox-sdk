@@ -3,12 +3,16 @@
  * Browse and search VS Code extensions
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Box, Typography, Grid, Pagination } from '@mui/material';
 import { extensionsApi } from '@/services/api';
 import type { ExtensionSearchResult } from '@/types';
 import { LoadingSpinner, EmptyState } from '@/components/common';
-import { ExtensionCard, ExtensionSearchBar } from '@/components/extensions';
+import {
+  ExtensionCard,
+  ExtensionSearchBar,
+  EnvironmentSelectorDialog,
+} from '@/components/extensions';
 import { useNotification } from '@/contexts/NotificationContext';
 import { useDebounce, usePagination } from '@/hooks';
 
@@ -20,22 +24,16 @@ export function Extensions(): JSX.Element {
   const [extensions, setExtensions] = useState<ExtensionSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const [selectedExtension, setSelectedExtension] = useState<ExtensionSearchResult | null>(null);
+  const [installing, setInstalling] = useState(false);
   const { page, pageSize, totalPages, setPage, setTotalPages } = usePagination({
     initialPageSize: 12,
   });
 
   const debouncedSearch = useDebounce(searchQuery, 500);
 
-  React.useEffect(() => {
-    if (debouncedSearch) {
-      searchExtensions();
-    } else {
-      setExtensions([]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch, page]);
-
-  const searchExtensions = async () => {
+  const searchExtensions = useCallback(async () => {
     setLoading(true);
     try {
       const result = await extensionsApi.searchExtensions({
@@ -51,11 +49,62 @@ export function Extensions(): JSX.Element {
     } finally {
       setLoading(false);
     }
-  };
+  }, [debouncedSearch, page, pageSize, notification, setTotalPages]);
 
-  const handleInstall = async (_extension: ExtensionSearchResult) => {
-    notification.info('Extension installation requires an active environment');
-  };
+  React.useEffect(() => {
+    if (debouncedSearch) {
+      searchExtensions();
+    } else {
+      setExtensions([]);
+    }
+  }, [debouncedSearch, searchExtensions]);
+
+  /**
+   * Handle extension install button click
+   * Opens the environment selector dialog
+   */
+  const handleInstall = useCallback((extension: ExtensionSearchResult) => {
+    setSelectedExtension(extension);
+    setSelectorOpen(true);
+  }, []);
+
+  /**
+   * Handle environment selection from dialog
+   * Installs the extension in the selected environment
+   */
+  const handleEnvironmentSelect = useCallback(
+    async (environmentId: string) => {
+      if (!selectedExtension) return;
+
+      setInstalling(true);
+      setSelectorOpen(false);
+
+      try {
+        await extensionsApi.installExtension({
+          environmentId,
+          extensionId: selectedExtension.extensionId,
+          version: selectedExtension.version,
+        });
+        notification.success(`${selectedExtension.displayName} installed successfully`);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to install extension';
+        notification.error(errorMessage);
+        console.error(error);
+      } finally {
+        setInstalling(false);
+        setSelectedExtension(null);
+      }
+    },
+    [selectedExtension, notification]
+  );
+
+  /**
+   * Handle cancellation of environment selector
+   */
+  const handleCancelSelector = useCallback(() => {
+    setSelectorOpen(false);
+    setSelectedExtension(null);
+  }, []);
 
   return (
     <Box>
@@ -67,8 +116,10 @@ export function Extensions(): JSX.Element {
         <ExtensionSearchBar value={searchQuery} onChange={setSearchQuery} />
       </Box>
 
-      {loading ? (
-        <LoadingSpinner message="Searching extensions..." />
+      {loading || installing ? (
+        <LoadingSpinner
+          message={installing ? 'Installing extension...' : 'Searching extensions...'}
+        />
       ) : extensions.length === 0 && !searchQuery ? (
         <EmptyState
           title="Search for extensions"
@@ -98,6 +149,14 @@ export function Extensions(): JSX.Element {
           )}
         </>
       )}
+
+      {/* Environment selector dialog */}
+      <EnvironmentSelectorDialog
+        open={selectorOpen}
+        extensionName={selectedExtension?.displayName || ''}
+        onSelect={handleEnvironmentSelect}
+        onCancel={handleCancelSelector}
+      />
     </Box>
   );
 }
