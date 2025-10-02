@@ -21,9 +21,12 @@ import {
   Chip,
   FormControlLabel,
   Checkbox,
+  Alert,
 } from '@mui/material';
 import { Delete, Add, Visibility, VisibilityOff } from '@mui/icons-material';
 import type { EnvironmentVariable, AddEnvironmentVariableRequest } from '@/types';
+import { useNotification } from '@/contexts/NotificationContext';
+import { ApiException } from '@/services/api';
 
 interface VariableListProps {
   variables: EnvironmentVariable[];
@@ -35,6 +38,7 @@ interface VariableListProps {
  * Environment variables list component
  */
 export function VariableList({ variables, onAdd, onRemove }: VariableListProps): JSX.Element {
+  const notification = useNotification();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
   const [formData, setFormData] = useState({
@@ -42,10 +46,14 @@ export function VariableList({ variables, onAdd, onRemove }: VariableListProps):
     value: '',
     isSecret: false,
   });
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   const handleAdd = async () => {
+    setErrorMessage(''); // Clear previous errors
+
     try {
       await onAdd(formData);
+      notification.success('Environment variable added successfully');
       setDialogOpen(false);
       setFormData({
         key: '',
@@ -53,12 +61,51 @@ export function VariableList({ variables, onAdd, onRemove }: VariableListProps):
         isSecret: false,
       });
     } catch (error) {
-      console.error(error);
+      // Extract user-friendly error message from API response
+      let userMessage = 'Failed to add environment variable. Please try again.';
+
+      if (error instanceof ApiException) {
+        // Use the specific error message from the API
+        userMessage = error.message;
+
+        // For validation errors, provide more context
+        if (error.error === 'VALIDATION_ERROR' && error.details) {
+          const fieldErrors = Object.entries(error.details)
+            .map(([field, msg]) => `${field}: ${msg}`)
+            .join(', ');
+          userMessage = `Validation error: ${fieldErrors}`;
+        }
+        // Handle specific duplicate key errors
+        else if (error.message.includes('already exists') || error.message.includes('duplicate')) {
+          userMessage = error.message;
+        }
+      }
+
+      setErrorMessage(userMessage);
+      notification.error(userMessage);
+      console.error('Failed to add environment variable:', error);
     }
   };
 
   const toggleShowSecret = (id: string) => {
     setShowSecrets((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleRemove = async (key: string) => {
+    try {
+      await onRemove(key);
+      notification.success('Environment variable removed successfully');
+    } catch (error) {
+      // Extract user-friendly error message from API response
+      let userMessage = 'Failed to remove environment variable. Please try again.';
+
+      if (error instanceof ApiException) {
+        userMessage = error.message;
+      }
+
+      notification.error(userMessage);
+      console.error('Failed to remove environment variable:', error);
+    }
   };
 
   return (
@@ -102,7 +149,7 @@ export function VariableList({ variables, onAdd, onRemove }: VariableListProps):
                       {showSecrets[variable.id] ? <VisibilityOff /> : <Visibility />}
                     </IconButton>
                   )}
-                  <IconButton edge="end" onClick={() => onRemove(variable.key)}>
+                  <IconButton edge="end" onClick={() => handleRemove(variable.key)}>
                     <Delete />
                   </IconButton>
                 </Box>
@@ -116,6 +163,11 @@ export function VariableList({ variables, onAdd, onRemove }: VariableListProps):
         <DialogTitle>Add Environment Variable</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1, minWidth: 400 }}>
+            {errorMessage && (
+              <Alert severity="error" onClose={() => setErrorMessage('')}>
+                {errorMessage}
+              </Alert>
+            )}
             <TextField
               label="Key"
               value={formData.key}
@@ -144,7 +196,14 @@ export function VariableList({ variables, onAdd, onRemove }: VariableListProps):
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={() => {
+              setDialogOpen(false);
+              setErrorMessage('');
+            }}
+          >
+            Cancel
+          </Button>
           <Button variant="contained" onClick={handleAdd}>
             Add
           </Button>

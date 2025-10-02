@@ -12,9 +12,11 @@ import {
   TextField,
   Button,
   Box,
+  Alert,
 } from '@mui/material';
 import type { Project, CreateProjectRequest, UpdateProjectRequest } from '@/types';
 import { useNotification } from '@/contexts/NotificationContext';
+import { ApiException } from '@/services/api';
 
 /**
  * Props for the ProjectForm component
@@ -65,6 +67,7 @@ export function ProjectForm({ open, project, onSubmit, onCancel }: ProjectFormPr
   const [repositoryUrl, setRepositoryUrl] = useState<string>('');
   const [repositoryUrlError, setRepositoryUrlError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   useEffect(() => {
     if (project) {
@@ -76,6 +79,8 @@ export function ProjectForm({ open, project, onSubmit, onCancel }: ProjectFormPr
       setDescription('');
       setRepositoryUrl('');
     }
+    setErrorMessage(''); // Clear errors when opening dialog
+    setRepositoryUrlError(''); // Clear validation errors too
   }, [project, open]);
 
   /**
@@ -100,6 +105,7 @@ export function ProjectForm({ open, project, onSubmit, onCancel }: ProjectFormPr
       return;
     }
     setRepositoryUrlError('');
+    setErrorMessage(''); // Clear previous errors
 
     setLoading(true);
 
@@ -111,7 +117,24 @@ export function ProjectForm({ open, project, onSubmit, onCancel }: ProjectFormPr
       });
       handleClose();
     } catch (error) {
-      notification.error('Failed to save project. Please try again.');
+      // Extract user-friendly error message from API response
+      let userMessage = 'Failed to save project. Please try again.';
+
+      if (error instanceof ApiException) {
+        // Use the specific error message from the API
+        userMessage = error.message;
+
+        // For validation errors, provide more context
+        if (error.error === 'VALIDATION_ERROR' && error.details) {
+          const fieldErrors = Object.entries(error.details)
+            .map(([field, msg]) => `${field}: ${msg}`)
+            .join(', ');
+          userMessage = `Validation error: ${fieldErrors}`;
+        }
+      }
+
+      setErrorMessage(userMessage);
+      notification.error(userMessage);
       console.error('Form submission failed:', error);
     } finally {
       setLoading(false);
@@ -122,6 +145,8 @@ export function ProjectForm({ open, project, onSubmit, onCancel }: ProjectFormPr
     setName('');
     setDescription('');
     setRepositoryUrl('');
+    setErrorMessage('');
+    setRepositoryUrlError('');
     onCancel();
   };
 
@@ -131,6 +156,11 @@ export function ProjectForm({ open, project, onSubmit, onCancel }: ProjectFormPr
         <DialogTitle>{project ? 'Edit Project' : 'Create Project'}</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            {errorMessage && (
+              <Alert severity="error" onClose={() => setErrorMessage('')}>
+                {errorMessage}
+              </Alert>
+            )}
             <TextField
               label="Name"
               value={name}
