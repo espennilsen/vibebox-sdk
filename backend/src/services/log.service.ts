@@ -610,6 +610,76 @@ export class LogService {
   }
 
   /**
+   * Delete all logs for an environment
+   *
+   * @param environmentId - Environment ID
+   * @param userId - User ID requesting the deletion
+   * @returns Number of logs deleted
+   * @throws {NotFoundError} If environment doesn't exist
+   * @throws {ForbiddenError} If user lacks access
+   *
+   * @example
+   * ```typescript
+   * const count = await logService.deleteLogs('env-123', 'user-123');
+   * ```
+   */
+  async deleteLogs(environmentId: string, userId: string): Promise<number> {
+    // Check if environment exists and user has access
+    const environment = await this.prisma.environment.findUnique({
+      where: { id: environmentId },
+      include: {
+        project: {
+          include: {
+            owner: true,
+            team: { include: { userTeams: true } },
+          },
+        },
+      },
+    });
+
+    if (!environment) {
+      throw new NotFoundError('Environment not found');
+    }
+
+    await this.checkEnvironmentAccess(environment.project, userId);
+
+    // Delete all logs for this environment
+    const result = await this.prisma.logEntry.deleteMany({
+      where: { environmentId },
+    });
+
+    return result.count;
+  }
+
+  /**
+   * Cleanup old logs beyond retention period
+   *
+   * Deletes logs older than the configured retention period (default 7 days)
+   *
+   * @returns Number of logs deleted
+   *
+   * @example
+   * ```typescript
+   * const count = await logService.cleanupOldLogs();
+   * ```
+   */
+  async cleanupOldLogs(): Promise<number> {
+    const retentionDays = 7; // Default retention period
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+
+    const result = await this.prisma.logEntry.deleteMany({
+      where: {
+        timestamp: {
+          lt: cutoffDate,
+        },
+      },
+    });
+
+    return result.count;
+  }
+
+  /**
    * Convert LogEntry entity to LogEntryDTO
    *
    * @private

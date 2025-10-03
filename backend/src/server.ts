@@ -11,6 +11,8 @@ import { config } from './lib/config';
 import { logger } from './lib/logger';
 import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
 import { registerRoutes } from './api';
+import { getScheduler } from './lib/scheduler';
+import { LogCleanupService } from './services/log-cleanup.service';
 import { securityHeaders, getAllowedOrigins } from './api/middleware/security';
 import { rateLimits } from './api/middleware/rateLimit';
 
@@ -99,10 +101,47 @@ export async function createServer() {
   fastify.setErrorHandler(errorHandler);
   fastify.setNotFoundHandler(notFoundHandler);
 
+  // Initialize log cleanup scheduler
+  const scheduler = getScheduler();
+  const logCleanupService = new LogCleanupService();
+
+  // Only register if not already registered (to support multiple server instances)
+  if (!scheduler.getRegisteredTasks().includes('log-cleanup')) {
+    scheduler.register({
+      name: 'log-cleanup',
+      schedule: '0 0 * * *', // Daily at midnight
+      handler: async () => {
+        logger.info('[LogCleanup] Starting scheduled log cleanup...');
+        try {
+          const stats = await logCleanupService.runCleanup();
+          logger.info(
+            {
+              deletedByAge: stats.deletedByAge,
+              deletedBySize: stats.deletedBySize,
+              spaceFreedMB: stats.spaceFreedMB,
+              durationMs: stats.durationMs,
+            },
+            '[LogCleanup] Cleanup completed successfully'
+          );
+        } catch (error) {
+          logger.error({ error }, '[LogCleanup] Cleanup failed');
+        }
+      },
+    });
+
+    // Start scheduler
+    scheduler.start();
+    logger.info('[Scheduler] Log cleanup job scheduled (daily at midnight)');
+  }
+
   // Graceful shutdown
   const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}, shutting down gracefully...`);
     try {
+      // Stop scheduler
+      scheduler.stop();
+      logger.info('[Scheduler] Stopped all scheduled tasks');
+
       await fastify.close();
       logger.info('Server closed successfully');
       process.exit(0);

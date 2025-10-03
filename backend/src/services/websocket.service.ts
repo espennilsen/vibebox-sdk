@@ -686,6 +686,9 @@ export class WebSocketService {
   /**
    * Get all active clients
    *
+   * This is equivalent to getConnectedClients() - both methods return
+   * the same result. Use whichever naming convention fits your use case.
+   *
    * @returns Array of client connections
    *
    * @example
@@ -694,6 +697,8 @@ export class WebSocketService {
    * const clients = wsService.getActiveClients();
    * console.log(`Active connections: ${clients.length}`);
    * ```
+   *
+   * @see getConnectedClients
    */
   getActiveClients(): ClientConnection[] {
     return Array.from(this.clients.values());
@@ -780,5 +785,100 @@ export class WebSocketService {
 
     // eslint-disable-next-line no-console
     console.log('All WebSocket connections closed');
+  }
+
+  /**
+   * Get a specific client by ID
+   *
+   * @param clientId - Client ID
+   * @returns Client connection or undefined
+   *
+   * @example
+   * ```typescript
+   * const wsService = new WebSocketService();
+   * const client = wsService.getClient('client-123');
+   * ```
+   */
+  getClient(clientId: string): ClientConnection | undefined {
+    return this.clients.get(clientId);
+  }
+
+  /**
+   * Get all connected clients
+   *
+   * This is equivalent to getActiveClients() - both methods return
+   * the same result. Use whichever naming convention fits your use case.
+   *
+   * @returns Array of client connections
+   *
+   * @example
+   * ```typescript
+   * const wsService = new WebSocketService();
+   * const clients = wsService.getConnectedClients();
+   * ```
+   *
+   * @see getActiveClients
+   */
+  getConnectedClients(): ClientConnection[] {
+    return this.getActiveClients();
+  }
+
+  /**
+   * Get clients by user ID
+   *
+   * @param userId - User ID
+   * @returns Array of client connections for the user
+   *
+   * @example
+   * ```typescript
+   * const wsService = new WebSocketService();
+   * const clients = wsService.getClientsByUserId('user-123');
+   * ```
+   */
+  getClientsByUserId(userId: string): ClientConnection[] {
+    return Array.from(this.clients.values()).filter((client) => client.userId === userId);
+  }
+
+  /**
+   * Broadcast message to all clients subscribed to an environment
+   *
+   * @param environmentId - Environment ID
+   * @param message - Message to broadcast
+   *
+   * @example
+   * ```typescript
+   * const wsService = new WebSocketService();
+   * wsService.broadcastToEnvironment('env-123', {
+   *   type: MessageType.ENV_STATUS,
+   *   payload: { status: 'running' }
+   * });
+   * ```
+   */
+  broadcastToEnvironment(environmentId: string, message: WebSocketMessage): void {
+    const subscribers = this.getEnvironmentSubscribers(environmentId);
+
+    for (const clientId of subscribers) {
+      this.sendToClient(clientId, message);
+    }
+  }
+
+  /**
+   * Heartbeat - ping all connected clients to keep connections alive
+   *
+   * This is the domain-appropriate name for WebSocket keep-alive functionality.
+   * Internally delegates to pingAll(). Use heartbeat() in application code for
+   * better semantic clarity.
+   *
+   * @example
+   * ```typescript
+   * const wsService = new WebSocketService();
+   * // Run heartbeat every 30 seconds to keep connections alive
+   * setInterval(() => wsService.heartbeat(), 30000);
+   * ```
+   *
+   * @see pingAll
+   */
+  heartbeat(): void {
+    this.pingAll();
   }
 }

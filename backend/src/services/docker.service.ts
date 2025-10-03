@@ -198,7 +198,13 @@ export class DockerService {
       await container.start();
     } catch (error) {
       console.error('Docker start container error:', error);
-      if (error instanceof Error && 'statusCode' in error && error.statusCode === 404) {
+      // Check for 404 error first (container not found)
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'statusCode' in error &&
+        error.statusCode === 404
+      ) {
         throw new NotFoundError('Container not found');
       }
       if (error instanceof Error) {
@@ -230,11 +236,22 @@ export class DockerService {
       await container.stop({ t: timeout });
     } catch (error) {
       console.error('Docker stop container error:', error);
-      if (error instanceof Error && 'statusCode' in error && error.statusCode === 404) {
+      // Check for 404 error first (container not found)
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'statusCode' in error &&
+        error.statusCode === 404
+      ) {
         throw new NotFoundError('Container not found');
       }
       // Container already stopped is not an error
-      if (error instanceof Error && 'statusCode' in error && error.statusCode === 304) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'statusCode' in error &&
+        error.statusCode === 304
+      ) {
         return;
       }
       if (error instanceof Error) {
@@ -266,7 +283,13 @@ export class DockerService {
       await container.restart({ t: timeout });
     } catch (error) {
       console.error('Docker restart container error:', error);
-      if (error instanceof Error && 'statusCode' in error && error.statusCode === 404) {
+      // Check for 404 error first (container not found)
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'statusCode' in error &&
+        error.statusCode === 404
+      ) {
         throw new NotFoundError('Container not found');
       }
       if (error instanceof Error) {
@@ -298,7 +321,13 @@ export class DockerService {
       await container.remove({ force });
     } catch (error) {
       console.error('Docker remove container error:', error);
-      if (error instanceof Error && 'statusCode' in error && error.statusCode === 404) {
+      // Check for 404 error first (container not found)
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'statusCode' in error &&
+        error.statusCode === 404
+      ) {
         throw new NotFoundError('Container not found');
       }
       if (error instanceof Error) {

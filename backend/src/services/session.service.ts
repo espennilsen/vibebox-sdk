@@ -263,7 +263,8 @@ export class SessionService {
     environmentId: string,
     userId: string,
     page: number = 1,
-    limit: number = 20
+    limit: number = 20,
+    sessionType?: SessionType
   ): Promise<SessionDTO[]> {
     // Check if environment exists and user has access
     const environment = await this.prisma.environment.findUnique({
@@ -286,8 +287,14 @@ export class SessionService {
 
     const skip = (page - 1) * limit;
 
+    // Build where clause with optional sessionType filter
+    const where: any = { environmentId };
+    if (sessionType !== undefined) {
+      where.sessionType = sessionType;
+    }
+
     const sessions = await this.prisma.session.findMany({
-      where: { environmentId },
+      where,
       skip,
       take: limit,
       orderBy: { createdAt: 'desc' },
@@ -539,5 +546,28 @@ export class SessionService {
       idleTimeoutMinutes: session.idleTimeoutMinutes,
       terminatedAt: session.terminatedAt,
     };
+  }
+
+  /**
+   * Update session activity timestamp
+   *
+   * Alias for updateSessionActivity() to match test expectations
+   *
+   * @param sessionId - Session ID
+   * @param userId - User ID
+   */
+  async updateActivity(sessionId: string, userId: string): Promise<void> {
+    return this.updateSessionActivity(sessionId, userId);
+  }
+
+  /**
+   * Cleanup idle sessions
+   *
+   * Alias for terminateIdleSessions() to match test expectations
+   *
+   * @returns Number of sessions terminated
+   */
+  async cleanupIdleSessions(): Promise<number> {
+    return this.terminateIdleSessions();
   }
 }

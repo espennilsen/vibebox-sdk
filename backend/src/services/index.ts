@@ -18,6 +18,7 @@ export { SessionService } from './session.service';
 // Feature services
 export { ExtensionService } from './extension.service';
 export { LogService } from './log.service';
+export { LogCleanupService } from './log-cleanup.service';
 export { WebSocketService } from './websocket.service';
 
 // Type exports from AuthService
@@ -69,6 +70,12 @@ export type {
 // Type exports from LogService
 export type { LogEntryDTO, PaginationInfo, PaginatedLogs, WriteLogData } from './log.service';
 export { LogStream } from '@/types/prisma-enums';
+
+// Type exports from LogCleanupService
+export type { CleanupStats, EnvironmentLogStats } from './log-cleanup.service';
+
+// Value exports from LogCleanupService
+export { LOG_RETENTION_CONFIG } from './log-cleanup.service';
 
 // Type exports from WebSocketService
 export {
