@@ -4,6 +4,7 @@
  */
 import type { ScheduledTask as CronScheduledTask } from 'node-cron';
 import { schedule as scheduleCronTask, validate as validateCronExpression } from 'node-cron';
+import { logger } from '@/lib/logger';
 
 /**
  * Scheduled task configuration
@@ -111,15 +112,23 @@ export class Scheduler {
   /**
    * Stop all running tasks
    *
+   * Waits for all active task executions to complete before resolving.
+   * Ensures graceful shutdown of all scheduled tasks.
+   *
    * @example
    * ```typescript
-   * scheduler.stop();
+   * await scheduler.stop();
    * ```
    */
-  stop(): void {
+  async stop(): Promise<void> {
+    const stopPromises: Promise<void>[] = [];
+
     for (const [_name, task] of this.tasks) {
-      void task.stop();
+      const stopPromise = Promise.resolve(task.stop());
+      stopPromises.push(stopPromise);
     }
+
+    await Promise.all(stopPromises);
   }
 
   /**
@@ -196,6 +205,16 @@ export class Scheduler {
   }
 
   /**
+   * Check if a task is registered
+   *
+   * @param name - Task name
+   * @returns True if task exists, false otherwise
+   */
+  has(name: string): boolean {
+    return this.tasks.has(name);
+  }
+
+  /**
    * Execute a task immediately (outside of schedule)
    *
    * Manually triggers a task execution without waiting for the next scheduled run.
@@ -231,15 +250,13 @@ export class Scheduler {
     let error: Error | undefined;
 
     try {
-      // eslint-disable-next-line no-console
-      console.log(`[Scheduler] Executing task: ${config.name}`);
+      logger.info({ taskName: config.name }, '[Scheduler] Executing task');
       await config.handler();
       success = true;
-      // eslint-disable-next-line no-console
-      console.log(`[Scheduler] Task completed: ${config.name}`);
+      logger.info({ taskName: config.name }, '[Scheduler] Task completed');
     } catch (err) {
       error = err instanceof Error ? err : new Error(String(err));
-      console.error(`[Scheduler] Task failed: ${config.name}`, error);
+      logger.error({ taskName: config.name, error }, '[Scheduler] Task failed');
     }
 
     const endTime = new Date();

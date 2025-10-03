@@ -105,41 +105,44 @@ export async function createServer() {
   const scheduler = getScheduler();
   const logCleanupService = new LogCleanupService();
 
-  // Only register if not already registered (to support multiple server instances)
-  if (!scheduler.getRegisteredTasks().includes('log-cleanup')) {
-    scheduler.register({
-      name: 'log-cleanup',
-      schedule: '0 0 * * *', // Daily at midnight
-      handler: async () => {
-        logger.info('[LogCleanup] Starting scheduled log cleanup...');
-        try {
-          const stats = await logCleanupService.runCleanup();
-          logger.info(
-            {
-              deletedByAge: stats.deletedByAge,
-              deletedBySize: stats.deletedBySize,
-              spaceFreedMB: stats.spaceFreedMB,
-              durationMs: stats.durationMs,
-            },
-            '[LogCleanup] Cleanup completed successfully'
-          );
-        } catch (error) {
-          logger.error({ error }, '[LogCleanup] Cleanup failed');
-        }
-      },
-    });
-
-    // Start scheduler
-    scheduler.start();
-    logger.info('[Scheduler] Log cleanup job scheduled (daily at midnight)');
+  // Make registration idempotent - unregister existing task if present
+  if (scheduler.has('log-cleanup')) {
+    scheduler.unregister('log-cleanup');
   }
+
+  scheduler.register({
+    name: 'log-cleanup',
+    schedule: '0 0 * * *', // Daily at midnight
+    handler: async () => {
+      logger.info('[LogCleanup] Starting scheduled log cleanup...');
+      try {
+        const stats = await logCleanupService.runCleanup();
+        logger.info(
+          {
+            deletedByAge: stats.deletedByAge,
+            deletedBySize: stats.deletedBySize,
+            spaceFreedMB: stats.spaceFreedMB,
+            durationMs: stats.durationMs,
+          },
+          '[LogCleanup] Cleanup completed successfully'
+        );
+      } catch (error) {
+        logger.error({ error }, '[LogCleanup] Cleanup failed');
+      }
+    },
+  });
+
+  // Start scheduler
+  scheduler.start();
+  logger.info('[Scheduler] Log cleanup job scheduled (daily at midnight)');
+
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}, shutting down gracefully...`);
     try {
-      // Stop scheduler
-      scheduler.stop();
+      // Stop scheduler and await completion of all tasks
+      await scheduler.stop();
       logger.info('[Scheduler] Stopped all scheduled tasks');
 
       await fastify.close();

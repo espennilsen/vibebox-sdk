@@ -5,6 +5,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import { getPrismaClient } from '@/lib/db';
+import { logger } from '@/lib/logger';
 import zlib from 'zlib';
 import { promisify } from 'util';
 
@@ -135,18 +136,22 @@ export class LogCleanupService {
     const startTime = Date.now();
     const timestamp = new Date();
 
-    console.log('[LogCleanup] Starting log cleanup...');
+    logger.info('[LogCleanup] Starting log cleanup...');
 
     // Step 1: Delete old logs (age-based retention)
     const deletedByAge = await this.cleanupByAge();
-    console.log(
-      `[LogCleanup] Deleted ${deletedByAge.count} logs older than ${LOG_RETENTION_CONFIG.RETENTION_DAYS} days`
+    logger.info(
+      '[LogCleanup] Deleted %d logs older than %d days',
+      deletedByAge.count,
+      LOG_RETENTION_CONFIG.RETENTION_DAYS
     );
 
     // Step 2: Enforce size limits per environment
     const { deletedBySize, spaceFreed } = await this.cleanupBySize();
-    console.log(
-      `[LogCleanup] Deleted ${deletedBySize} logs exceeding size limit (freed ${spaceFreed.toFixed(2)} MB)`
+    logger.info(
+      '[LogCleanup] Deleted %d logs exceeding size limit (freed %s MB)',
+      deletedBySize,
+      spaceFreed.toFixed(2)
     );
 
     // Step 3: Get environment count
@@ -164,9 +169,9 @@ export class LogCleanupService {
       timestamp,
     };
 
-    console.log(`[LogCleanup] Cleanup completed in ${durationMs}ms`);
-    console.log(`[LogCleanup] Total deleted: ${stats.deletedByAge + stats.deletedBySize} logs`);
-    console.log(`[LogCleanup] Space freed: ${stats.spaceFreedMB.toFixed(2)} MB`);
+    logger.info('[LogCleanup] Cleanup completed in %dms', durationMs);
+    logger.info('[LogCleanup] Total deleted: %d logs', stats.deletedByAge + stats.deletedBySize);
+    logger.info('[LogCleanup] Space freed: %s MB', stats.spaceFreedMB.toFixed(2));
 
     return stats;
   }
@@ -235,7 +240,7 @@ export class LogCleanupService {
       orderBy: { timestamp: 'asc' },
     });
 
-    // Calculate total size
+    // Calculate total size using actual UTF-8 byte length
     const totalSizeBytes = logs.reduce(
       (sum, log) => sum + Buffer.byteLength(log.message, 'utf8'),
       0

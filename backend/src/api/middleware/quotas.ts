@@ -43,6 +43,12 @@ export async function checkUserQuota(request: FastifyRequest, _reply: FastifyRep
     throw new NotFoundError('User not found');
   }
 
+  // Treat null/undefined maxEnvironments as unlimited
+  if (user.maxEnvironments === null || user.maxEnvironments === undefined) {
+    // No limit set, allow creation
+    return;
+  }
+
   // Count active environments for this user
   const activeEnvironments = await prisma.environment.count({
     where: {
@@ -53,7 +59,7 @@ export async function checkUserQuota(request: FastifyRequest, _reply: FastifyRep
     },
   });
 
-  // Check if quota exceeded
+  // Check if quota exceeded (only if maxEnvironments is a finite number)
   if (activeEnvironments >= user.maxEnvironments) {
     throw new TooManyRequestsError(
       `User environment quota exceeded. You have ${activeEnvironments} active environments out of ${user.maxEnvironments} allowed.`
@@ -109,6 +115,12 @@ export async function checkTeamQuota(request: FastifyRequest, _reply: FastifyRep
     return;
   }
 
+  // Treat null/undefined maxEnvironments as unlimited
+  if (project.team.maxEnvironments === null || project.team.maxEnvironments === undefined) {
+    // No limit set, allow creation
+    return;
+  }
+
   // Count active environments for this team across all projects
   const activeEnvironments = await prisma.environment.count({
     where: {
@@ -121,7 +133,7 @@ export async function checkTeamQuota(request: FastifyRequest, _reply: FastifyRep
     },
   });
 
-  // Check if quota exceeded
+  // Check if quota exceeded (only when maxEnvironments is a non-null number)
   if (activeEnvironments >= project.team.maxEnvironments) {
     throw new TooManyRequestsError(
       `Team environment quota exceeded. The team has ${activeEnvironments} active environments out of ${project.team.maxEnvironments} allowed.`
@@ -175,8 +187,8 @@ export async function checkTeamMemberQuota(
     throw new NotFoundError('Team not found');
   }
 
-  // Check if quota exceeded
-  if (team._count.userTeams >= team.maxMembers) {
+  // Treat null/undefined maxMembers as unlimited - only enforce when a numeric cap is configured
+  if (typeof team.maxMembers === 'number' && team._count.userTeams >= team.maxMembers) {
     throw new TooManyRequestsError(
       `Team member quota exceeded. The team has ${team._count.userTeams} members out of ${team.maxMembers} allowed.`
     );
@@ -209,18 +221,23 @@ export function validateResourceLimits(request: FastifyRequest, _reply: FastifyR
     storageLimit?: number;
   };
 
-  // Validate CPU limit
-  if (body.cpuLimit !== undefined) {
-    if (body.cpuLimit < RESOURCE_LIMITS.CPU.MIN || body.cpuLimit > RESOURCE_LIMITS.CPU.MAX) {
+  // Validate CPU limit - skip null/undefined, only validate if present
+  if (body.cpuLimit !== null && body.cpuLimit !== undefined) {
+    if (
+      typeof body.cpuLimit !== 'number' ||
+      body.cpuLimit < RESOURCE_LIMITS.CPU.MIN ||
+      body.cpuLimit > RESOURCE_LIMITS.CPU.MAX
+    ) {
       throw new ValidationError(
         `CPU limit must be between ${RESOURCE_LIMITS.CPU.MIN} and ${RESOURCE_LIMITS.CPU.MAX} cores. Requested: ${body.cpuLimit}`
       );
     }
   }
 
-  // Validate memory limit
-  if (body.memoryLimit !== undefined) {
+  // Validate memory limit - skip null/undefined, only validate if present
+  if (body.memoryLimit !== null && body.memoryLimit !== undefined) {
     if (
+      typeof body.memoryLimit !== 'number' ||
       body.memoryLimit < RESOURCE_LIMITS.MEMORY.MIN ||
       body.memoryLimit > RESOURCE_LIMITS.MEMORY.MAX
     ) {
@@ -230,9 +247,10 @@ export function validateResourceLimits(request: FastifyRequest, _reply: FastifyR
     }
   }
 
-  // Validate storage limit
-  if (body.storageLimit !== undefined) {
+  // Validate storage limit - skip null/undefined, only validate if present
+  if (body.storageLimit !== null && body.storageLimit !== undefined) {
     if (
+      typeof body.storageLimit !== 'number' ||
       body.storageLimit < RESOURCE_LIMITS.STORAGE.MIN ||
       body.storageLimit > RESOURCE_LIMITS.STORAGE.MAX
     ) {
