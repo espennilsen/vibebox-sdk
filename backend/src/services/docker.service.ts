@@ -5,6 +5,13 @@
  */
 import Docker from 'dockerode';
 import { InternalServerError, NotFoundError, BadRequestError } from '@/lib/errors';
+import {
+  DockerSecurityService,
+  SecurityPolicy,
+  DEFAULT_SECURITY_POLICY,
+  SecurityPolicyViolationError,
+} from './docker-security.service';
+import { logger } from '@/lib/logger';
 
 /**
  * Container status type
@@ -98,13 +105,16 @@ export class DockerService {
   }
 
   /**
-   * Create a new container
+   * Create a new container with security hardening
    *
-   * Creates Docker container with specified configuration
+   * Creates Docker container with specified configuration and applies security policies
    *
    * @param options - Container creation options
+   * @param environmentId - Environment ID for network isolation (optional)
+   * @param securityPolicy - Security policy to enforce (optional, uses DEFAULT_SECURITY_POLICY)
    * @returns Container ID
    * @throws {BadRequestError} If image or configuration is invalid
+   * @throws {SecurityPolicyViolationError} If security policy is violated
    * @throws {InternalServerError} If Docker operation fails
    *
    * @example
@@ -117,10 +127,14 @@ export class DockerService {
    *   ports: { 3000: 3000, 8080: 8080 },
    *   cpuLimit: 2,
    *   memoryLimit: 4096
-   * });
+   * }, 'env-uuid-123');
    * ```
    */
-  async createContainer(options: CreateContainerOptions): Promise<string> {
+  async createContainer(
+    options: CreateContainerOptions,
+    environmentId?: string,
+    securityPolicy: SecurityPolicy = DEFAULT_SECURITY_POLICY
+  ): Promise<string> {
     try {
       // Pull image if not exists
       await this.pullImage(options.image);
@@ -153,8 +167,8 @@ export class DockerService {
         NanoCpus: options.cpuLimit ? options.cpuLimit * 1e9 : undefined,
       };
 
-      // Create container
-      const container = await this.docker.createContainer({
+      // Build container config
+      let containerConfig: Docker.ContainerCreateOptions = {
         name: options.name,
         Image: options.image,
         Env: options.env,
@@ -165,11 +179,66 @@ export class DockerService {
         AttachStdin: true,
         AttachStdout: true,
         AttachStderr: true,
-      });
+      };
+
+      // Apply security hardening
+      containerConfig = DockerSecurityService.applySecurityHardening(
+        containerConfig,
+        securityPolicy
+      );
+
+      // Validate security policy
+      DockerSecurityService.validateContainerConfig(containerConfig, securityPolicy);
+
+      // Create isolated network if environment ID provided
+      if (environmentId && securityPolicy.networkIsolation === 'isolated') {
+        const networkId = await DockerSecurityService.createIsolatedNetwork(
+          this.docker,
+          environmentId
+        );
+        const networkName = `vibebox-env-${environmentId}`;
+        containerConfig.HostConfig = containerConfig.HostConfig || {};
+
+        // Use both NetworkMode and EndpointsConfig to ensure proper network attachment
+        containerConfig.HostConfig.NetworkMode = networkName;
+        (containerConfig as any).NetworkingConfig = {
+          EndpointsConfig: { [networkName]: {} },
+        };
+
+        logger.info(
+          { environmentId, networkId, networkName, container: options.name },
+          'Attached container to isolated network'
+        );
+      }
+
+      // Create container
+      const container = await this.docker.createContainer(containerConfig);
+
+      logger.info(
+        {
+          containerId: container.id,
+          image: options.image,
+          environmentId,
+          securityPolicy: {
+            enforceNonRoot: securityPolicy.enforceNonRoot,
+            preventDockerSocket: securityPolicy.preventDockerSocket,
+            networkIsolation: securityPolicy.networkIsolation,
+          },
+        },
+        'Container created with security hardening'
+      );
 
       return container.id;
     } catch (error) {
-      console.error('Docker create container error:', error);
+      if (error instanceof SecurityPolicyViolationError) {
+        logger.error(
+          { violations: error.violations, image: options.image },
+          'Security policy violation'
+        );
+        throw new BadRequestError(`Security policy violation: ${error.violations.join('; ')}`);
+      }
+
+      logger.error({ error, options }, 'Docker create container error');
       if (error instanceof Error) {
         throw new InternalServerError(`Failed to create container: ${error.message}`);
       }
@@ -300,11 +369,12 @@ export class DockerService {
   }
 
   /**
-   * Remove container
+   * Remove container and cleanup isolated network
    *
-   * Permanently removes a container
+   * Permanently removes a container and cleans up associated isolated network
    *
    * @param containerId - Container ID
+   * @param environmentId - Environment ID for network cleanup (optional)
    * @param force - Force removal of running container (default: false)
    * @throws {NotFoundError} If container doesn't exist
    * @throws {InternalServerError} If Docker operation fails
@@ -312,15 +382,27 @@ export class DockerService {
    * @example
    * ```typescript
    * const dockerService = new DockerService();
-   * await dockerService.removeContainer('container-id-123', true);
+   * await dockerService.removeContainer('container-id-123', 'env-uuid-123', true);
    * ```
    */
-  async removeContainer(containerId: string, force: boolean = false): Promise<void> {
+  async removeContainer(
+    containerId: string,
+    environmentId?: string,
+    force: boolean = false
+  ): Promise<void> {
     try {
       const container = this.docker.getContainer(containerId);
       await container.remove({ force });
+
+      // Cleanup isolated network if environment ID provided
+      if (environmentId) {
+        await DockerSecurityService.removeIsolatedNetwork(this.docker, environmentId);
+        logger.info({ containerId, environmentId }, 'Container and network removed');
+      } else {
+        logger.info({ containerId }, 'Container removed');
+      }
     } catch (error) {
-      console.error('Docker remove container error:', error);
+      logger.error({ error, containerId }, 'Docker remove container error');
       // Check for 404 error first (container not found)
       if (
         typeof error === 'object' &&

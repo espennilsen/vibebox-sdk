@@ -136,7 +136,6 @@ export async function createServer() {
   scheduler.start();
   logger.info('[Scheduler] Log cleanup job scheduled (daily at midnight)');
 
-
   // Graceful shutdown
   const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}, shutting down gracefully...`);

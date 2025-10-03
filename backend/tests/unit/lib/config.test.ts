@@ -24,15 +24,15 @@ describe('Configuration with Secret Resolution', () => {
     it('should load configuration without secret resolution in development', async () => {
       process.env.NODE_ENV = 'development';
       process.env.DATABASE_URL = 'postgresql://localhost:5432/test';
-      process.env.JWT_SECRET = 'test-secret';
-      process.env.JWT_REFRESH_SECRET = 'test-refresh-secret';
+      process.env.JWT_SECRET = 'test-jwt-secret-key-with-minimum-32-characters-required';
+      process.env.JWT_REFRESH_SECRET = 'test-jwt-refresh-secret-key-minimum-32-chars-required';
       process.env.PORT = '3000';
 
       const config = await loadConfig();
 
       expect(config.nodeEnv).toBe('development');
       expect(config.databaseUrl).toBe('postgresql://localhost:5432/test');
-      expect(config.jwt.secret).toBe('test-secret');
+      expect(config.jwt.secret).toBe('test-jwt-secret-key-with-minimum-32-characters-required');
       expect(config.isDevelopment).toBe(true);
       expect(config.isProduction).toBe(false);
     });
@@ -65,7 +65,7 @@ describe('Configuration with Secret Resolution', () => {
       process.env.SECRET_PROVIDER = 'env';
       process.env.DATABASE_URL = '${env:DATABASE_URL_DIRECT}';
       process.env.DATABASE_URL_DIRECT = 'postgresql://direct:pass@localhost:5432/db';
-      process.env.JWT_SECRET = 'test-jwt';
+      process.env.JWT_SECRET = 'test-jwt-secret-key-with-minimum-32-characters-required';
       process.env.JWT_REFRESH_SECRET = 'test-refresh';
       process.env.PORT = '3000';
       process.env.ENABLE_SECRET_MANAGER = 'true';
@@ -79,7 +79,7 @@ describe('Configuration with Secret Resolution', () => {
       process.env.NODE_ENV = 'production';
       process.env.SECRET_PROVIDER = 'env';
       process.env.DATABASE_URL = '${secret:nonexistent-secret}';
-      process.env.JWT_SECRET = 'test-jwt';
+      process.env.JWT_SECRET = 'test-jwt-secret-key-with-minimum-32-characters-required';
       process.env.JWT_REFRESH_SECRET = 'test-refresh';
       process.env.PORT = '3000';
 
@@ -90,7 +90,7 @@ describe('Configuration with Secret Resolution', () => {
       process.env.NODE_ENV = 'production';
       process.env.ENABLE_SECRET_MANAGER = 'false';
       process.env.DATABASE_URL = '${secret:database-url}';
-      process.env.JWT_SECRET = 'test-jwt';
+      process.env.JWT_SECRET = 'test-jwt-secret-key-with-minimum-32-characters-required';
       process.env.JWT_REFRESH_SECRET = 'test-refresh';
       process.env.PORT = '3000';
 
@@ -108,7 +108,7 @@ describe('Configuration with Secret Resolution', () => {
       process.env.DB_PORT = '5432';
 
       process.env.DATABASE_URL = 'postgresql://user:${secret:db-password}@${env:DB_HOST}:${env:DB_PORT}/db';
-      process.env.JWT_SECRET = 'test-jwt';
+      process.env.JWT_SECRET = 'test-jwt-secret-key-with-minimum-32-characters-required';
       process.env.JWT_REFRESH_SECRET = 'test-refresh';
       process.env.PORT = '3000';
 
@@ -129,7 +129,7 @@ describe('Configuration with Secret Resolution', () => {
       process.env.GOOGLE_CLIENT_SECRET = '${secret:google-client-secret}';
 
       process.env.DATABASE_URL = 'postgresql://localhost:5432/test';
-      process.env.JWT_SECRET = 'test-jwt';
+      process.env.JWT_SECRET = 'test-jwt-secret-key-with-minimum-32-characters-required';
       process.env.JWT_REFRESH_SECRET = 'test-refresh';
       process.env.PORT = '3000';
 
@@ -143,7 +143,7 @@ describe('Configuration with Secret Resolution', () => {
       // Development
       process.env.NODE_ENV = 'development';
       process.env.DATABASE_URL = 'postgresql://localhost:5432/test';
-      process.env.JWT_SECRET = 'test';
+      process.env.JWT_SECRET = 'test-jwt-secret-key-with-minimum-32-characters-required';
       process.env.JWT_REFRESH_SECRET = 'test';
       process.env.PORT = '3000';
 
@@ -173,7 +173,7 @@ describe('Configuration with Secret Resolution', () => {
     it('should use default values for optional fields', async () => {
       process.env.NODE_ENV = 'development';
       process.env.DATABASE_URL = 'postgresql://localhost:5432/test';
-      process.env.JWT_SECRET = 'test';
+      process.env.JWT_SECRET = 'test-jwt-secret-key-with-minimum-32-characters-required';
       process.env.JWT_REFRESH_SECRET = 'test';
       process.env.PORT = '3000';
 
@@ -190,7 +190,7 @@ describe('Configuration with Secret Resolution', () => {
       process.env.NODE_ENV = 'development';
       process.env.PORT = '4000';
       process.env.DATABASE_URL = 'postgresql://localhost:5432/test';
-      process.env.JWT_SECRET = 'test';
+      process.env.JWT_SECRET = 'test-jwt-secret-key-with-minimum-32-characters-required';
       process.env.JWT_REFRESH_SECRET = 'test';
 
       const config = await loadConfig();
@@ -204,7 +204,7 @@ describe('Configuration with Secret Resolution', () => {
     it('should have all required fields', async () => {
       process.env.NODE_ENV = 'development';
       process.env.DATABASE_URL = 'postgresql://localhost:5432/test';
-      process.env.JWT_SECRET = 'test';
+      process.env.JWT_SECRET = 'test-jwt-secret-key-with-minimum-32-characters-required';
       process.env.JWT_REFRESH_SECRET = 'test';
       process.env.PORT = '3000';
 
@@ -246,7 +246,7 @@ describe('Configuration with Secret Resolution', () => {
     it('should load configuration quickly', async () => {
       process.env.NODE_ENV = 'development';
       process.env.DATABASE_URL = 'postgresql://localhost:5432/test';
-      process.env.JWT_SECRET = 'test';
+      process.env.JWT_SECRET = 'test-jwt-secret-key-with-minimum-32-characters-required';
       process.env.JWT_REFRESH_SECRET = 'test';
       process.env.PORT = '3000';
 
@@ -263,7 +263,7 @@ describe('Configuration with Secret Resolution', () => {
       process.env.SECRET_PROVIDER = 'env';
       process.env.DATABASE_URL = '${secret:db-url}';
       process.env.SECRET_DB_URL = 'postgresql://localhost:5432/test';
-      process.env.JWT_SECRET = 'test';
+      process.env.JWT_SECRET = 'test-jwt-secret-key-with-minimum-32-characters-required';
       process.env.JWT_REFRESH_SECRET = 'test';
       process.env.PORT = '3000';
 
@@ -289,7 +289,7 @@ describe('Configuration type safety', () => {
   beforeEach(() => {
     process.env.NODE_ENV = 'development';
     process.env.DATABASE_URL = 'postgresql://localhost:5432/test';
-    process.env.JWT_SECRET = 'test';
+    process.env.JWT_SECRET = 'test-jwt-secret-key-with-minimum-32-characters-required';
     process.env.JWT_REFRESH_SECRET = 'test';
     process.env.PORT = '3000';
   });

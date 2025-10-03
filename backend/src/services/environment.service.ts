@@ -389,7 +389,7 @@ export class EnvironmentService {
     if (environment.containerId) {
       try {
         await this.dockerService.stopContainer(environment.containerId);
-        await this.dockerService.removeContainer(environment.containerId);
+        await this.dockerService.removeContainer(environment.containerId, environmentId);
       } catch (error) {
         console.warn('Failed to remove container, continuing with deletion:', error);
       }
@@ -468,15 +468,18 @@ export class EnvironmentService {
         // Prepare environment variables
         const env = environment.variables.map((v) => `${v.key}=${v.value}`);
 
-        // Create container
-        containerId = await this.dockerService.createContainer({
-          name: `vibebox-${environment.slug}-${environment.id.substring(0, 8)}`,
-          image: environment.baseImage,
-          env,
-          ports,
-          cpuLimit: Number(environment.cpuLimit),
-          memoryLimit: environment.memoryLimit,
-        });
+        // Create container with security hardening
+        containerId = await this.dockerService.createContainer(
+          {
+            name: `vibebox-${environment.slug}-${environment.id.substring(0, 8)}`,
+            image: environment.baseImage,
+            env,
+            ports,
+            cpuLimit: Number(environment.cpuLimit),
+            memoryLimit: environment.memoryLimit,
+          },
+          environmentId // Enable network isolation
+        );
 
         // Update environment with container ID
         await this.prisma.environment.update({

@@ -305,3 +305,86 @@ enum LogStream {
   stdout
   stderr
 }
+
+/// AuditLog entity - Tracks sensitive operations for security and compliance
+model AuditLog {
+  id          String       @id @default(uuid())
+  userId      String?      @map("user_id")
+  action      AuditAction
+  resource    String       // Resource type (user, environment, project, etc.)
+  resourceId  String?      @map("resource_id")
+  details     Json?        // Additional context (IP, user agent, changes, etc.)
+  severity    AuditSeverity
+  ipAddress   String?      @map("ip_address")
+  userAgent   String?      @map("user_agent") @db.Text
+  success     Boolean      @default(true)
+  errorMessage String?     @map("error_message") @db.Text
+  timestamp   DateTime     @default(now())
+
+  @@index([userId, timestamp(sort: Desc)])
+  @@index([action, timestamp(sort: Desc)])
+  @@index([resource, resourceId])
+  @@index([timestamp(sort: Desc)])
+  @@index([severity])
+  @@map("audit_logs")
+}
+
+enum AuditAction {
+  // Authentication
+  auth_login_success
+  auth_login_failed
+  auth_logout
+  auth_register
+  auth_password_change
+  auth_password_reset
+  auth_token_refresh
+
+  // User management
+  user_create
+  user_update
+  user_delete
+  user_role_change
+
+  // Environment management
+  environment_create
+  environment_start
+  environment_stop
+  environment_delete
+  environment_update
+  environment_access
+
+  // Project management
+  project_create
+  project_update
+  project_delete
+  project_archive
+
+  // Team management
+  team_create
+  team_update
+  team_delete
+  team_member_add
+  team_member_remove
+  team_role_change
+
+  // Secrets and sensitive data
+  secret_access
+  secret_create
+  secret_update
+  secret_delete
+  env_var_create
+  env_var_update
+  env_var_delete
+
+  // System operations
+  system_config_change
+  system_backup
+  system_restore
+}
+
+enum AuditSeverity {
+  low      // Routine operations
+  medium   // Important operations
+  high     // Sensitive operations
+  critical // Security-critical operations
+}

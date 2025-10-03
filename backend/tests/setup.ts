@@ -15,6 +15,14 @@ config({ path: resolve(__dirname, '../../.env') });
 // Set test environment
 process.env.NODE_ENV = 'test';
 
+// Set test JWT secrets if not already set (minimum 32 characters required)
+if (!process.env.JWT_SECRET) {
+  process.env.JWT_SECRET = 'test-jwt-secret-key-with-minimum-32-characters-required';
+}
+if (!process.env.JWT_REFRESH_SECRET) {
+  process.env.JWT_REFRESH_SECRET = 'test-jwt-refresh-secret-key-minimum-32-chars-required';
+}
+
 // Replace 'postgres' hostname with 'localhost' for tests running outside Docker
 if (process.env.DATABASE_URL) {
   process.env.DATABASE_URL = process.env.DATABASE_URL.replace(/@postgres:/g, '@localhost:');

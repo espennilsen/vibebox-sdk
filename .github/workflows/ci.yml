@@ -68,8 +68,8 @@ jobs:
           DATABASE_URL: postgresql://vibebox:vibebox@localhost:5432/vibebox_test
           DATABASE_URL_TEST: postgresql://vibebox:vibebox@localhost:5432/vibebox_test
           NODE_ENV: test
-          JWT_SECRET: test-secret
-          JWT_REFRESH_SECRET: test-refresh-secret
+          JWT_SECRET: test-jwt-secret-key-with-minimum-32-characters-required
+          JWT_REFRESH_SECRET: test-jwt-refresh-secret-key-minimum-32-chars-required
 
     services:
       postgres:

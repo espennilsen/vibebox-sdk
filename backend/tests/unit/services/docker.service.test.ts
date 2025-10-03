@@ -210,7 +210,7 @@ describe('DockerService', () => {
 
     it('should force remove if specified', async () => {
       // Act
-      await dockerService.removeContainer('container-123', true);
+      await dockerService.removeContainer('container-123', undefined, true);
 
       // Assert
       expect(mockContainer.remove).toHaveBeenCalledWith({ force: true });
