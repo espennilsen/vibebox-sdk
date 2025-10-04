@@ -321,7 +321,10 @@ export class DockerSecurityService {
         IPAM: {
           Config: [
             {
-              Subnet: `172.${this.getNetworkSubnet(environmentId)}.0.0/24`,
+              Subnet: (() => {
+                const { secondOctet, thirdOctet } = this.getNetworkSubnet(environmentId);
+                return `172.${secondOctet}.${thirdOctet}.0/24`;
+              })(),
             },
           ],
         },
@@ -371,19 +374,37 @@ export class DockerSecurityService {
   /**
    * Get network subnet for environment ID
    * Maps environment ID to a unique subnet in the RFC1918 172.16.0.0/12 range
+   * Returns both second and third octets to provide collision-resistant /24 blocks
    *
    * @param environmentId - Environment ID
-   * @returns Subnet octet (16-31 for RFC1918 172.16/12)
+   * @returns Object with secondOctet (16-31, excluding 17-18) and thirdOctet (0-255)
    */
-  private static getNetworkSubnet(environmentId: string): number {
-    // Hash environment ID to a number between 16 and 31
+  private static getNetworkSubnet(environmentId: string): {
+    secondOctet: number;
+    thirdOctet: number;
+  } {
+    // Hash environment ID to derive two stable octets
     // Using RFC1918 private range 172.16.0.0/12 (172.16.x.0/24 to 172.31.x.0/24)
+    // Avoid Docker-reserved subnets 172.17.0.0/16 and 172.18.0.0/16
+
     let hash = 0;
     for (let i = 0; i < environmentId.length; i++) {
       hash = (hash << 5) - hash + environmentId.charCodeAt(i);
       hash = hash & hash; // Convert to 32-bit integer
     }
-    return 16 + (Math.abs(hash) % 16); // 16 to 31 (RFC1918 172.16/12)
+
+    const absHash = Math.abs(hash);
+
+    // Second octet: 16-31 range, but skip 17 and 18 (Docker defaults)
+    // Available values: 16, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 (14 values)
+    const allowedSecondOctets = [16, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31];
+    const secondOctet = allowedSecondOctets[absHash % allowedSecondOctets.length] || 16;
+
+    // Third octet: full range 0-255
+    // Use a different part of the hash for third octet to increase entropy
+    const thirdOctet = (absHash >> 8) % 256;
+
+    return { secondOctet, thirdOctet };
   }
 
   /**

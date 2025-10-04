@@ -370,12 +370,42 @@ export class AuthService {
 
       return payload;
     } catch (error) {
-      if (error instanceof jwt.JsonWebTokenError) {
-        throw new UnauthorizedError('Invalid token');
-      }
+      // Check for TokenExpiredError first - don't try fallback for expired tokens
       if (error instanceof jwt.TokenExpiredError) {
         throw new UnauthorizedError('Token expired');
       }
+
+      // Support for JWT secret rotation: try old secret if primary fails with other JWT errors
+      if (error instanceof jwt.JsonWebTokenError) {
+        try {
+          const cleanToken = token.replace(/^Bearer\s+/i, '');
+          const oldSecret = isRefreshToken
+            ? process.env.JWT_REFRESH_SECRET_OLD
+            : process.env.JWT_SECRET_OLD;
+
+          // Only attempt fallback if old secret is configured
+          if (oldSecret) {
+            const payload = jwt.verify(cleanToken, oldSecret) as JWTPayload;
+
+            // Validate payload structure
+            if (!payload.userId || !payload.email) {
+              throw new UnauthorizedError('Invalid token payload');
+            }
+
+            // Token verified with old secret - still valid during rotation period
+            return payload;
+          }
+        } catch (fallbackError) {
+          // If fallback throws TokenExpiredError, propagate it
+          if (fallbackError instanceof jwt.TokenExpiredError) {
+            throw new UnauthorizedError('Token expired');
+          }
+          // Fallback failed or no old secret configured - throw original error
+        }
+        // If we get here, both primary and fallback failed
+        throw new UnauthorizedError('Invalid token');
+      }
+
       if (error instanceof UnauthorizedError) {
         throw error;
       }

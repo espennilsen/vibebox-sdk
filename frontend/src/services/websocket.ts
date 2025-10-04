@@ -18,8 +18,8 @@ type MessageHandler<T = unknown> = (payload: T) => void;
 export class WebSocketClient {
   private ws: WebSocket | null = null;
   private handlers: Map<string, Set<MessageHandler>> = new Map();
-  private reconnectTimer: NodeJS.Timeout | null = null;
-  private heartbeatTimer: NodeJS.Timeout | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private heartbeatTimer: ReturnType<typeof setTimeout> | null = null;
   private shouldReconnect = true;
   private isConnecting = false;
 

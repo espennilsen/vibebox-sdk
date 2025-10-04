@@ -238,7 +238,19 @@ export class DockerService {
         throw new BadRequestError(`Security policy violation: ${error.violations.join('; ')}`);
       }
 
-      logger.error({ error, options }, 'Docker create container error');
+      // Sanitize options to avoid logging sensitive data (env vars, volumes, etc.)
+      const sanitizedOptions = {
+        name: options.name,
+        image: options.image,
+        cpuLimit: options.cpuLimit,
+        memoryLimit: options.memoryLimit,
+        storageLimit: options.storageLimit,
+        portsCount: options.ports ? Object.keys(options.ports).length : 0,
+        volumesCount: options.volumes ? Object.keys(options.volumes).length : 0,
+        envCount: options.env ? options.env.length : 0,
+      };
+
+      logger.error({ error, options: sanitizedOptions }, 'Docker create container error');
       if (error instanceof Error) {
         throw new InternalServerError(`Failed to create container: ${error.message}`);
       }

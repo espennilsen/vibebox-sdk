@@ -8,6 +8,7 @@ import { AuthService } from '@/services';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { validate, patterns } from '../middleware/validation';
 import { rateLimits } from '../middleware/rateLimit';
+import { auditLog, AuditAction, AuditSeverity } from '@/services/audit.service';
 
 /**
  * Register authentication routes
@@ -40,8 +41,34 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     { Body: { email: string; password: string; displayName: string } }
   > = async (request, reply) => {
     const { email, password, displayName } = request.body;
-    const result = await authService.register(email, password, displayName);
-    return reply.status(201).send(result);
+
+    try {
+      const result = await authService.register(email, password, displayName);
+
+      // Audit log: Successful registration
+      await auditLog(request, {
+        userId: result.user.id,
+        action: AuditAction.auth_register,
+        resource: 'user',
+        resourceId: result.user.id,
+        severity: AuditSeverity.medium,
+        details: { email, displayName },
+      });
+
+      return reply.status(201).send(result);
+    } catch (error) {
+      // Audit log: Failed registration
+      await auditLog(request, {
+        action: AuditAction.auth_register,
+        resource: 'user',
+        severity: AuditSeverity.medium,
+        success: false,
+        errorMessage: error instanceof Error ? error.message : 'Registration failed',
+        details: { email, displayName },
+      });
+
+      throw error;
+    }
   };
 
   fastify.post('/register', {
@@ -75,8 +102,34 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     { Body: { email: string; password: string } }
   > = async (request, reply) => {
     const { email, password } = request.body;
-    const result = await authService.login(email, password);
-    return reply.status(200).send(result);
+
+    try {
+      const result = await authService.login(email, password);
+
+      // Audit log: Successful login
+      await auditLog(request, {
+        userId: result.user.id,
+        action: AuditAction.auth_login_success,
+        resource: 'user',
+        resourceId: result.user.id,
+        severity: AuditSeverity.medium,
+        details: { email },
+      });
+
+      return reply.status(200).send(result);
+    } catch (error) {
+      // Audit log: Failed login (high severity for security monitoring)
+      await auditLog(request, {
+        action: AuditAction.auth_login_failed,
+        resource: 'user',
+        severity: AuditSeverity.high,
+        success: false,
+        errorMessage: error instanceof Error ? error.message : 'Login failed',
+        details: { email },
+      });
+
+      throw error;
+    }
   };
 
   fastify.post('/login', {

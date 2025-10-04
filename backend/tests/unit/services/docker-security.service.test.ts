@@ -452,7 +452,8 @@ describe('DockerSecurityService - createIsolatedNetwork', () => {
     );
 
     const createCall = mockDocker.createNetwork.mock.calls[0][0];
-    expect(createCall.IPAM.Config[0].Subnet).toMatch(/^172\.\d{1,3}\.0\.0\/24$/);
+    // Updated to expect 172.secondOctet.thirdOctet.0/24 format (two variable octets)
+    expect(createCall.IPAM.Config[0].Subnet).toMatch(/^172\.\d{1,3}\.\d{1,3}\.0\/24$/);
   });
 
   it('should filter networks by name', async () => {

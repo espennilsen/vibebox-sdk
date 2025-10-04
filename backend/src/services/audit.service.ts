@@ -123,7 +123,18 @@ export async function createAuditLog(data: AuditLogData) {
     return auditLog;
   } catch (error) {
     // Best-effort logging: Don't fail the operation if audit logging fails
-    logger.error({ error, data }, 'Failed to create audit log entry');
+    // Sanitize data to avoid logging sensitive fields like data.details
+    const sanitizedMetadata = {
+      action: data.action,
+      resource: data.resource,
+      resourceId: data.resourceId,
+      userId: data.userId,
+      severity: data.severity,
+      success: data.success,
+      // Omit data.details and other potentially sensitive fields
+    };
+
+    logger.error({ error, metadata: sanitizedMetadata }, 'Failed to create audit log entry');
     return undefined;
   }
 }
