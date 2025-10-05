@@ -187,7 +187,6 @@ export function requireOwnershipOrAdmin(options: {
       throw new Error(`Resource ID parameter '${options.resourceIdParam}' not found in route`);
     }
 
-    // Fetch resource to check ownership and team
     // Fetch full resource to support custom ownerField/teamIdField
     if (options.resourceType === 'project') {
       const project = await prisma.project.findUnique({

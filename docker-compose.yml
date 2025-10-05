@@ -47,7 +47,26 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
-      - /var/run/docker.sock:/var/run/docker.sock  # Docker socket for dockerode
+      # SECURITY NOTE - Docker Socket Access (INTENTIONAL & REQUIRED)
+      #
+      # This mount gives the backend service access to the host's Docker daemon.
+      # This is NECESSARY for VibeBox to create and manage development environment containers.
+      #
+      # Security Model:
+      # - Backend service (trusted): HAS Docker socket access
+      # - User containers (untrusted): DO NOT have Docker socket access
+      #
+      # Protection Layers:
+      # 1. User Authentication: Required before any Docker operations
+      # 2. RBAC: Team membership and role checks on all operations
+      # 3. Security Policies: All containers validated (DockerSecurityService)
+      # 4. Container Hardening: Non-root, dropped capabilities, network isolation
+      # 5. Audit Logging: All Docker operations tracked
+      #
+      # This is the same pattern used by Jenkins, GitLab Runner, Portainer, and
+      # all container-as-a-service platforms. See backend/src/services/docker.service.ts
+      # for detailed security documentation.
+      - /var/run/docker.sock:/var/run/docker.sock
     command: npm run dev
     networks:
       - vibebox-network

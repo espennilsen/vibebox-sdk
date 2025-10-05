@@ -81,6 +81,9 @@ spec:
             readOnlyRootFilesystem: true
 
           # Environment Variables from ConfigMap
+          # Note: ConfigMap should include DOCKER_HOST=tcp://vibebox-docker-dind:2375
+          # This connects the backend to the isolated Docker-in-Docker service
+          # instead of the host's Docker socket. See docker-dind-deployment.yaml.
           envFrom:
             - configMapRef:
                 name: vibebox-config

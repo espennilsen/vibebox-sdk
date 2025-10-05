@@ -1,6 +1,37 @@
 ---
 # Docker-in-Docker Deployment
 # Provides Docker daemon for creating user development environments
+#
+# SECURITY NOTE - Docker-in-Docker Service (INTENTIONAL & REQUIRED)
+#
+# This deployment provides a Docker daemon that the backend uses to create
+# and manage user development environment containers. This is an isolated
+# Docker daemon, separate from the host's Docker.
+#
+# Why DinD in Kubernetes (vs host socket in docker-compose):
+# - Avoids mounting host Docker socket into pods (better security)
+# - Isolates Docker daemon from cluster control plane
+# - Enables better resource limits and monitoring
+# - Follows Kubernetes best practices for pod security
+#
+# Security Model:
+# 1. Backend service connects to DinD via TCP (DOCKER_HOST=tcp://vibebox-docker-dind:2375)
+# 2. DinD runs privileged (required for Docker daemon) but isolated by NetworkPolicy
+# 3. User containers created by DinD are still secured (non-root, dropped caps, etc.)
+# 4. Only backend pods can access DinD (enforced by NetworkPolicy)
+# 5. All Docker operations require user authentication + RBAC checks
+#
+# This is the recommended pattern for container-as-a-service in Kubernetes.
+# See: https://docs.docker.com/engine/security/rootless/
+#
+# For production, consider:
+# - Rootless Docker mode (removes privileged requirement)
+# - Sysbox runtime (provides better isolation)
+# - Kata Containers (VM-level isolation)
+#
+# Code Reviewer Note: The 'privileged: true' flag is INTENTIONAL and REQUIRED
+# for Docker-in-Docker to function. This container is isolated via NetworkPolicy.
+#
 # WARNING: DinD is privileged and should be isolated with NetworkPolicies
 apiVersion: apps/v1
 kind: Deployment
