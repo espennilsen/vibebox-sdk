@@ -81,7 +81,7 @@ vibebox/
    ./scripts/verify-migration.sh
    ```
 
-   📋 **Detailed instructions**: See [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)
+   📋 **Detailed instructions**: See [DEPLOYMENT_CHECKLIST.md](./docs/DEPLOYMENT_CHECKLIST.md)
 
 5. **Start development servers**
 
@@ -155,7 +155,7 @@ npm run db:studio        # Open Prisma Studio
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
+We welcome contributions! Please see [CONTRIBUTING.md](./docs/CONTRIBUTING.md) for details.
 
 ### Development Workflow
 
