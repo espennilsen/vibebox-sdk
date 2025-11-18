@@ -1,6 +1,6 @@
 {
   "name": "@vibebox/sdk",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Official TypeScript SDK for VibeBox - Programmatic sandbox management",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -18,14 +18,19 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "build": "npm run build:sdk && npm run build:cli",
+    "build:sdk": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "build:cli": "cd cli && npm run build",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "dev:cli": "cd cli && npm run dev",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "lint": "eslint src --ext .ts",
-    "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm run build"
+    "test:cli": "cd cli && npm test",
+    "lint": "eslint src --ext .ts && cd cli && npm run lint",
+    "typecheck": "tsc --noEmit && cd cli && npm run typecheck",
+    "prepublishOnly": "npm run build",
+    "cli:install": "cd cli && npm install"
   },
   "keywords": [
     "vibebox",

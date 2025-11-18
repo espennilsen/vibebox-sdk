@@ -1,0 +1,73 @@
+{
+  "name": "@vibebox/cli",
+  "version": "1.1.0",
+  "description": "Official CLI for VibeBox - Quick-start tool for sandbox management",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "vibebox": "./dist/cli.js",
+    "vb": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup src/cli.ts src/index.ts --format cjs --clean --shims",
+    "dev": "tsup src/cli.ts src/index.ts --format cjs --watch --shims",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "vibebox",
+    "cli",
+    "sandbox",
+    "docker",
+    "development",
+    "ai",
+    "claude-code"
+  ],
+  "author": "VibeBox Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/vibebox.git",
+    "directory": "cli"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/vibebox/issues"
+  },
+  "homepage": "https://github.com/yourusername/vibebox#readme",
+  "dependencies": {
+    "@vibebox/sdk": "file:..",
+    "commander": "^11.1.0",
+    "chalk": "^4.1.2",
+    "ora": "^5.4.1",
+    "inquirer": "^8.2.6",
+    "conf": "^10.2.0",
+    "cli-table3": "^0.6.3",
+    "boxen": "^5.1.2",
+    "update-notifier": "^6.0.2",
+    "chokidar": "^3.5.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/inquirer": "^8.2.10",
+    "@types/update-notifier": "^6.0.8",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@vitest/coverage-v8": "^1.0.0",
+    "eslint": "^8.57.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.4",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

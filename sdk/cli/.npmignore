@@ -1,0 +1,9 @@
+src/
+tests/
+*.test.ts
+.gitignore
+tsconfig.json
+.eslintrc.js
+vitest.config.ts
+coverage/
+.vitest/
