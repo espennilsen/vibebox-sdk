@@ -377,9 +377,40 @@ Check the [examples](./examples) directory for more usage examples:
 
 - [basic-usage.ts](./examples/basic-usage.ts) - Simple sandbox creation
 - [git-workflow.ts](./examples/git-workflow.ts) - Git operations
-- [code-execution.ts](./examples/code-execution.ts) - Execute code
-- [file-operations.ts](./examples/file-operations.ts) - File management
-- [parallel-sandboxes.ts](./examples/parallel-sandboxes.ts) - Multiple sandboxes
+- [claude-code-agent.ts](./examples/claude-code-agent.ts) - Claude Code agent orchestrating multiple sandboxes
+
+### Claude Code Agent Example
+
+The SDK is perfect for AI agents that need to orchestrate multiple development environments:
+
+```typescript
+import { ClaudeCodeTestAgent } from './examples/claude-code-agent';
+
+const agent = new ClaudeCodeTestAgent(process.env.VIBEBOX_API_KEY);
+
+// Run tests across multiple repositories in parallel
+const results = await agent.runParallelTests([
+  'https://github.com/user/repo1.git',
+  'https://github.com/user/repo2.git',
+  'https://github.com/user/repo3.git',
+]);
+
+// Analyze code quality
+const reports = await agent.analyzeCodeQuality(repositories);
+
+// Deploy to multiple environments
+const deployments = await agent.deployToMultipleEnvironments(repo, environments);
+
+// Update dependencies across multiple repos
+const migrations = await agent.updateDependenciesAcrossRepos(repos, updates);
+```
+
+See [claude-code-agent.ts](./examples/claude-code-agent.ts) for the complete implementation showing:
+- Parallel test execution across repositories
+- Code quality analysis
+- Multi-environment deployments
+- Automated dependency migrations
+- Proper error handling and cleanup
 
 ## Requirements
 
