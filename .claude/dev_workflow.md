@@ -560,7 +560,7 @@ CI automatically runs:
 - **[Quick Start Guide](./quick_start.md)** - Setup instructions
 - **[API Reference](./api_reference.md)** - API documentation
 - **[Spec Kit Contracts](./specs.md)** - Data models
-- **[Contributing Guide](../CONTRIBUTING.md)** - Contribution guidelines
+- **[Contributing Guide](../docs/CONTRIBUTING.md)** - Contribution guidelines
 
 ---
 

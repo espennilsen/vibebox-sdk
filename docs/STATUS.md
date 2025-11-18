@@ -43,7 +43,7 @@
 
 **Migration File**: `backend/prisma/migrations/20241001_initial_schema/migration.sql`
 
-⚠️ **Action Required**: Apply migration to databases (see MIGRATION_GUIDE.md)
+⚠️ **Action Required**: Apply migration to databases (see [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md))
 
 ---
 
@@ -76,7 +76,7 @@
 
 **Changes in This PR**:
 - ✅ Environment files created (.env, backend/.env)
-- ✅ Deployment checklist created (DEPLOYMENT_CHECKLIST.md)
+- ✅ Deployment checklist created ([DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md))
 - ✅ Verification script created (scripts/verify-migration.sh)
 - ✅ Configuration documented
 
@@ -84,9 +84,9 @@
 
 **Deployment Options**:
 1. Run `./scripts/setup-db.sh` (recommended)
-2. Manual: See MIGRATION_GUIDE.md for detailed instructions
+2. Manual: See [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for detailed instructions
 3. Use Docker or database GUI
-4. Follow DEPLOYMENT_CHECKLIST.md step-by-step
+4. Follow [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md) step-by-step
 
 **After Deployment**:
 1. Run `./scripts/verify-migration.sh` to confirm success
@@ -94,8 +94,8 @@
 3. Verify with Prisma Studio: `cd backend && npm run db:studio`
 
 **See**:
-- DEPLOYMENT_CHECKLIST.md for step-by-step guide
-- MIGRATION_GUIDE.md for detailed instructions
+- [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md) for step-by-step guide
+- [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for detailed instructions
 
 ---
 
@@ -195,7 +195,7 @@
 
 1. **Apply database migration**
    - Run: `./scripts/setup-db.sh`
-   - Or follow: MIGRATION_GUIDE.md
+   - Or follow: [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md)
    - Verify: Check tables exist
 
 2. **Generate Prisma Client**
@@ -271,7 +271,7 @@ None currently. All infrastructure is set up and ready.
 - **Documentation**: See `.claude/` directory
 - **Quick Start**: `.claude/quick_start.md`
 - **FAQ**: `.claude/faq.md`
-- **Migration Help**: `MIGRATION_GUIDE.md`
+- **Migration Help**: [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md)
 
 ---
 

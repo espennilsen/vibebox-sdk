@@ -154,7 +154,7 @@ When contributing to VibeBox:
 2. **You confirm** you have the right to submit the code
 3. **You agree** to the [Contributor License Agreement](../CLA.md) (if applicable)
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for details.
+See [CONTRIBUTING.md](../docs/CONTRIBUTING.md) for details.
 
 ---
 

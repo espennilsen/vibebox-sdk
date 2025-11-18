@@ -271,7 +271,7 @@ kubectl describe externalsecret vibebox-database
 - **[Full Guide](./.claude/secrets_management.md)** - Comprehensive documentation
 - **[Security Guide](./.claude/security.md)** - Security best practices
 - **[Scripts README](../scripts/README.md)** - Detailed script usage
-- **[Implementation Summary](../SECRETS_IMPLEMENTATION.md)** - Technical details
+- **[Implementation Summary](../docs/SECRETS_IMPLEMENTATION.md)** - Technical details
 
 ---
 

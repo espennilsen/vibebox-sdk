@@ -204,7 +204,7 @@ npm run db:studio        # Open Prisma Studio
 ## 📖 Additional Resources
 
 - **[README](./README.md)** - Project overview and quick start
-- **[CONTRIBUTING](./CONTRIBUTING.md)** - Contribution guidelines
+- **[CONTRIBUTING](./docs/CONTRIBUTING.md)** - Contribution guidelines
 - **[LICENSE](./LICENSE)** - MIT License
 
 ---

@@ -121,7 +121,7 @@ Opens browser at <http://localhost:5555> showing database tables.
 
 ## Post-Migration
 
-- [ ] Update STATUS.md to mark migration as complete
+- [ ] Update [STATUS.md](./STATUS.md) to mark migration as complete
 - [ ] Commit and push changes
 - [ ] Close GitHub Issue #1
 - [ ] Move to Phase 3.3: Contract Tests
@@ -141,7 +141,7 @@ psql -h localhost -U vibebox -d postgres -c "CREATE DATABASE vibebox_test;"
 
 ## Troubleshooting
 
-See MIGRATION_GUIDE.md for detailed troubleshooting steps.
+See [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for detailed troubleshooting steps.
 
 ---
 
