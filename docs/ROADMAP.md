@@ -66,12 +66,16 @@ VibeBox will become a **developer-first sandbox platform** that enables:
 - Real-time collaboration between Claude and human developers
 - Claude Code session management API
 - Specialized UI for Claude Code environments
+- **Claude Code Agent SDK** - Orchestrator for controlling VibeBox
+- **Multi-sandbox orchestration** - Parallel sandbox management
 
 **Success Criteria**:
 - Launch sandbox with Claude Code pre-installed
 - Claude can read/write files in sandbox
 - Claude can execute commands and see output
 - Human developer can collaborate with Claude in same environment
+- Claude Agent can orchestrate multiple sandboxes in parallel
+- Agent can spin up N sandboxes for distributed tasks
 
 ---
 
@@ -678,7 +682,289 @@ await claude.env.set('API_KEY', 'secret');
 const value = await claude.env.get('NODE_ENV');
 ```
 
-#### 2.3 Claude Code UI Components
+#### 2.3 Claude Code Agent SDK (Orchestrator)
+**Duration**: 1 week
+
+**Tasks**:
+- [ ] Claude Code Agent package (`@vibebox/claude-agent`)
+- [ ] Agent SDK using Claude Agent SDK architecture
+- [ ] Multi-sandbox orchestration engine
+- [ ] Parallel task distribution
+- [ ] Agent-to-sandbox communication
+- [ ] Task queue and worker pool management
+- [ ] Agent context management across sandboxes
+- [ ] Error handling and recovery strategies
+- [ ] Agent logging and observability
+
+**Architecture**:
+```typescript
+// packages/claude-agent/
+├── src/
+│   ├── orchestrator.ts        // Main orchestrator class
+│   ├── agent.ts                // Base agent implementation
+│   ├── sandbox-pool.ts         // Sandbox pool manager
+│   ├── task-queue.ts           // Task distribution
+│   └── mcp-client.ts           // MCP integration
+├── examples/
+│   ├── parallel-testing.ts     // Run tests across N sandboxes
+│   ├── distributed-build.ts    // Parallel build tasks
+│   └── multi-repo-analysis.ts  // Analyze multiple repos
+└── package.json
+```
+
+**Agent SDK API**:
+```typescript
+import { VibeBoxAgent } from '@vibebox/claude-agent';
+
+// Initialize agent with VibeBox connection
+const agent = new VibeBoxAgent({
+  apiKey: process.env.VIBEBOX_API_KEY,
+  claudeApiKey: process.env.ANTHROPIC_API_KEY,
+  maxParallelSandboxes: 10
+});
+
+// ===== Single sandbox control =====
+const task = await agent.task('Analyze this repository', {
+  git: 'https://github.com/user/project.git',
+  template: 'node-20-claude-code'
+});
+
+await task.waitForCompletion();
+console.log(task.result);
+
+// ===== Parallel sandbox orchestration =====
+// Spin up N sandboxes for distributed work
+const orchestrator = agent.orchestrate({
+  maxWorkers: 5,
+  template: 'node-20-claude-code'
+});
+
+// Distribute tasks across sandboxes
+const tasks = [
+  { repo: 'https://github.com/user/repo1.git', task: 'Run tests' },
+  { repo: 'https://github.com/user/repo2.git', task: 'Run tests' },
+  { repo: 'https://github.com/user/repo3.git', task: 'Run tests' },
+  { repo: 'https://github.com/user/repo4.git', task: 'Run tests' },
+  { repo: 'https://github.com/user/repo5.git', task: 'Run tests' }
+];
+
+const results = await orchestrator.executeAll(tasks);
+
+// ===== Map-reduce pattern =====
+const repos = [
+  'https://github.com/user/repo1.git',
+  'https://github.com/user/repo2.git',
+  'https://github.com/user/repo3.git'
+];
+
+// Map: Run analysis in parallel sandboxes
+const analyses = await agent.map(repos, async (repo, sandbox) => {
+  await sandbox.git.clone(repo);
+  await sandbox.run('npm install', { cwd: '/repo' });
+  const result = await sandbox.run('npm test', { cwd: '/repo' });
+  return {
+    repo,
+    passed: result.exitCode === 0,
+    coverage: parseCoverage(result.output)
+  };
+});
+
+// Reduce: Aggregate results
+const summary = agent.reduce(analyses, (acc, result) => {
+  acc.total++;
+  if (result.passed) acc.passed++;
+  acc.avgCoverage += result.coverage;
+  return acc;
+}, { total: 0, passed: 0, avgCoverage: 0 });
+
+// ===== Worker pool for long-running tasks =====
+const pool = await agent.createPool({
+  workers: 5,
+  template: 'node-20-claude-code',
+  persistent: true  // keep sandboxes alive
+});
+
+// Submit tasks to pool
+for (const repo of repositories) {
+  pool.submit(async (sandbox) => {
+    await sandbox.git.clone(repo);
+    await sandbox.run('npm install', { cwd: '/repo' });
+    await sandbox.run('npm test', { cwd: '/repo' });
+  });
+}
+
+// Wait for all tasks
+await pool.waitForCompletion();
+await pool.shutdown();
+
+// ===== Streaming results from multiple sandboxes =====
+const stream = agent.streamResults({
+  tasks: ['task1', 'task2', 'task3'],
+  parallelism: 3
+});
+
+for await (const update of stream) {
+  console.log(`Sandbox ${update.sandboxId}: ${update.status}`);
+  console.log(update.logs);
+}
+
+// ===== Error handling and retries =====
+const result = await agent.task('Build and test', {
+  git: 'https://github.com/user/project.git',
+  retries: 3,
+  fallbackStrategy: 'cleanup-and-retry',
+  onError: async (error, sandbox) => {
+    // Custom error handling
+    await sandbox.exec('cat /repo/build.log');
+  }
+});
+
+// ===== Context sharing across sandboxes =====
+const context = agent.createContext({
+  sharedData: { apiKey: 'secret', baseUrl: 'https://api.example.com' }
+});
+
+await agent.map(repos, async (repo, sandbox) => {
+  // Context is automatically available in all sandboxes
+  const apiKey = await context.get('apiKey');
+  await sandbox.env.set('API_KEY', apiKey);
+}, { context });
+```
+
+**Orchestrator Implementation**:
+```typescript
+export class VibeBoxAgent {
+  private vb: VibeBox;
+  private anthropic: Anthropic;
+  private activeSandboxes: Map<string, Sandbox> = new Map();
+  private maxParallelSandboxes: number;
+
+  constructor(options: AgentOptions) {
+    this.vb = new VibeBox({ apiKey: options.apiKey });
+    this.anthropic = new Anthropic({ apiKey: options.claudeApiKey });
+    this.maxParallelSandboxes = options.maxParallelSandboxes || 10;
+  }
+
+  /**
+   * Execute tasks in parallel across multiple sandboxes
+   */
+  async map<T, R>(
+    items: T[],
+    fn: (item: T, sandbox: Sandbox) => Promise<R>,
+    options?: MapOptions
+  ): Promise<R[]> {
+    const { parallelism = this.maxParallelSandboxes, template = 'node-20' } = options || {};
+
+    // Create sandbox pool
+    const pool = new SandboxPool(this.vb, template, parallelism);
+    await pool.initialize();
+
+    try {
+      // Execute tasks in parallel with concurrency limit
+      const results = await Promise.all(
+        items.map(async (item) => {
+          const sandbox = await pool.acquire();
+          try {
+            return await fn(item, sandbox);
+          } finally {
+            await pool.release(sandbox);
+          }
+        })
+      );
+
+      return results;
+    } finally {
+      await pool.shutdown();
+    }
+  }
+
+  /**
+   * Create a persistent worker pool
+   */
+  async createPool(options: PoolOptions): Promise<WorkerPool> {
+    const pool = new WorkerPool(this.vb, options);
+    await pool.initialize();
+    return pool;
+  }
+
+  /**
+   * Execute a single task with Claude Code
+   */
+  async task(prompt: string, options: TaskOptions): Promise<TaskResult> {
+    const sandbox = await this.vb.create({
+      template: options.template || 'node-20-claude-code',
+      git: options.git,
+      ephemeral: true
+    });
+
+    try {
+      // Use Claude to execute the task
+      const result = await this.anthropic.messages.create({
+        model: 'claude-3-5-sonnet-20250129',
+        max_tokens: 8192,
+        messages: [{
+          role: 'user',
+          content: prompt
+        }],
+        tools: [
+          {
+            name: 'execute_code',
+            description: 'Execute code in the sandbox',
+            input_schema: {
+              type: 'object',
+              properties: {
+                code: { type: 'string' },
+                language: { type: 'string' }
+              }
+            }
+          },
+          {
+            name: 'read_file',
+            description: 'Read file from sandbox',
+            input_schema: {
+              type: 'object',
+              properties: {
+                path: { type: 'string' }
+              }
+            }
+          }
+        ]
+      });
+
+      // Process Claude's tool calls
+      for (const block of result.content) {
+        if (block.type === 'tool_use') {
+          if (block.name === 'execute_code') {
+            await sandbox.run(block.input.code);
+          } else if (block.name === 'read_file') {
+            await sandbox.download(block.input.path);
+          }
+        }
+      }
+
+      return {
+        success: true,
+        result: result.content
+      };
+    } finally {
+      if (options.ephemeral !== false) {
+        await sandbox.destroy();
+      }
+    }
+  }
+}
+```
+
+**Use Cases**:
+1. **Parallel Testing**: Run test suites across multiple sandboxes
+2. **Multi-repo Analysis**: Analyze multiple repositories simultaneously
+3. **Distributed Builds**: Build different components in parallel
+4. **Batch Processing**: Process large datasets across workers
+5. **CI/CD Pipelines**: Orchestrate complex deployment workflows
+6. **Code Review**: Review multiple PRs in parallel
+7. **Migration Tasks**: Update multiple repositories simultaneously
+
+#### 2.4 Claude Code UI Components
 **Duration**: 1 week
 
 **Tasks**:
@@ -689,12 +975,17 @@ const value = await claude.env.get('NODE_ENV');
 - [ ] Approve/reject Claude suggestions UI
 - [ ] Claude Code configuration panel
 - [ ] Performance metrics for Claude operations
+- [ ] Multi-sandbox orchestration dashboard
+- [ ] Agent task queue visualization
+- [ ] Parallel execution monitoring
 
 **UI Features**:
 - **Activity Feed**: Show what Claude is doing in real-time
 - **Collaboration Mode**: Toggle between human and Claude control
 - **Change Review**: Approve file changes before applying
 - **Context Inspector**: View what context Claude has access to
+- **Orchestration Dashboard**: Monitor parallel sandbox execution
+- **Task Queue**: View pending, running, and completed agent tasks
 
 ---
 
