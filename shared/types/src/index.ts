@@ -69,7 +69,7 @@ export interface Project {
 // Environment Types
 // ============================================================================
 
-export type EnvironmentStatus = 'stopped' | 'starting' | 'running' | 'stopping' | 'error';
+export type EnvironmentStatus = 'stopped' | 'starting' | 'running' | 'stopping' | 'paused' | 'error';
 
 export interface Environment {
   id: string;
@@ -85,6 +85,9 @@ export interface Environment {
   cpuLimit: number;
   memoryLimit: number;
   storageLimit: number;
+  ephemeral: boolean;
+  expiresAt?: string;
+  pausedAt?: string;
   createdAt: string;
   updatedAt: string;
   startedAt?: string;
@@ -292,3 +295,304 @@ export interface CreateSessionRequest {
   sessionType: SessionType;
   sessionName: string;
 }
+
+// ============================================================================
+// API Key Types
+// ============================================================================
+
+export type ApiKeyScope = 'read' | 'write' | 'execute';
+
+export interface ApiKey {
+  id: string;
+  userId: string;
+  name: string;
+  keyPrefix: string;
+  scopes: ApiKeyScope[];
+  expiresAt?: string;
+  lastUsedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateApiKeyRequest {
+  name: string;
+  scopes: ApiKeyScope[];
+  expiresAt?: string;
+}
+
+export interface CreateApiKeyResponse {
+  apiKey: ApiKey;
+  key: string; // Full API key (only returned once)
+}
+
+export interface UpdateApiKeyRequest {
+  name?: string;
+  scopes?: ApiKeyScope[];
+}
+
+// ============================================================================
+// Git Integration Types
+// ============================================================================
+
+export type GitAuthType = 'token' | 'ssh' | 'none';
+
+export interface GitAuthConfig {
+  type: GitAuthType;
+  token?: string;
+  sshKey?: string;
+}
+
+export interface SandboxGitConfig {
+  id: string;
+  environmentId: string;
+  repoUrl: string;
+  branch: string;
+  path: string;
+  depth?: number;
+  authType: GitAuthType;
+  lastSyncAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GitCloneRequest {
+  url: string;
+  branch?: string;
+  path?: string;
+  depth?: number;
+  auth?: GitAuthConfig;
+}
+
+export interface GitCloneResponse {
+  success: boolean;
+  path: string;
+  branch: string;
+  commit?: string;
+}
+
+export interface GitPullRequest {
+  remote?: string;
+  branch?: string;
+}
+
+export interface GitPullResponse {
+  success: boolean;
+  updatedFiles: number;
+  commit?: string;
+}
+
+export interface GitPushRequest {
+  remote?: string;
+  branch?: string;
+  force?: boolean;
+}
+
+export interface GitPushResponse {
+  success: boolean;
+  pushed: boolean;
+  commit?: string;
+}
+
+export interface GitCommitRequest {
+  message: string;
+  files?: string[];
+  author?: {
+    name: string;
+    email: string;
+  };
+}
+
+export interface GitCommitResponse {
+  success: boolean;
+  commit: string;
+  filesChanged: number;
+}
+
+export interface GitCheckoutRequest {
+  branch: string;
+  create?: boolean;
+}
+
+export interface GitCheckoutResponse {
+  success: boolean;
+  branch: string;
+}
+
+export interface GitStatusResponse {
+  branch: string;
+  modified: string[];
+  added: string[];
+  deleted: string[];
+  untracked: string[];
+  ahead: number;
+  behind: number;
+}
+
+export interface GitDiffResponse {
+  files: Array<{
+    path: string;
+    status: 'added' | 'modified' | 'deleted';
+    additions: number;
+    deletions: number;
+    diff?: string;
+  }>;
+}
+
+// ============================================================================
+// Code Execution Types
+// ============================================================================
+
+export type ExecutionStatus = 'pending' | 'running' | 'completed' | 'failed' | 'timeout' | 'cancelled';
+
+export interface Execution {
+  id: string;
+  environmentId: string;
+  userId: string;
+  code: string;
+  language: string;
+  status: ExecutionStatus;
+  stdout?: string;
+  stderr?: string;
+  exitCode?: number;
+  duration?: number;
+  timeout: number;
+  env?: Record<string, string>;
+  startedAt?: string;
+  completedAt?: string;
+  createdAt: string;
+}
+
+export interface ExecuteCodeRequest {
+  code: string;
+  language: string;
+  timeout?: number;
+  env?: Record<string, string>;
+}
+
+export interface ExecuteCodeResponse {
+  executionId: string;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  duration: number;
+  status: ExecutionStatus;
+}
+
+// ============================================================================
+// File Operations Types
+// ============================================================================
+
+export interface FileInfo {
+  name: string;
+  path: string;
+  size: number;
+  isDirectory: boolean;
+  permissions: string;
+  modifiedAt: string;
+}
+
+export interface ListFilesResponse {
+  files: FileInfo[];
+  path: string;
+}
+
+export interface UploadFileRequest {
+  path: string;
+  content: string | Buffer;
+  permissions?: string;
+}
+
+export interface UploadFileResponse {
+  success: boolean;
+  path: string;
+  size: number;
+}
+
+export interface DeleteFileResponse {
+  success: boolean;
+  deleted: number;
+}
+
+// ============================================================================
+// Template Types
+// ============================================================================
+
+export interface Template {
+  id: string;
+  name: string;
+  displayName: string;
+  description?: string;
+  baseImage: string;
+  category?: string;
+  tags: string[];
+  config: {
+    cpuLimit?: number;
+    memoryLimit?: number;
+    storageLimit?: number;
+    ports?: Array<{
+      containerPort: number;
+      protocol?: Protocol;
+    }>;
+    extensions?: string[];
+  };
+  isPublic: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============================================================================
+// Enhanced Environment Request Types
+// ============================================================================
+
+export interface EnhancedCreateEnvironmentRequest extends CreateEnvironmentRequest {
+  template?: string;
+  autoStart?: boolean;
+  ephemeral?: boolean;
+  timeout?: string;
+  git?: GitCloneRequest;
+}
+
+export interface SetEnvironmentVariablesRequest {
+  variables: Record<string, string>;
+}
+
+export interface SetEnvironmentVariableRequest {
+  key: string;
+  value: string;
+}
+
+// ============================================================================
+// WebSocket Execution Message Types
+// ============================================================================
+
+export interface WebSocketExecutionStartMessage {
+  type: 'execution:start';
+  data: {
+    executionId: string;
+  };
+}
+
+export interface WebSocketExecutionOutputMessage {
+  type: 'execution:output';
+  data: {
+    executionId: string;
+    stream: 'stdout' | 'stderr';
+    data: string;
+  };
+}
+
+export interface WebSocketExecutionEndMessage {
+  type: 'execution:end';
+  data: {
+    executionId: string;
+    exitCode: number;
+    duration: number;
+    status: ExecutionStatus;
+  };
+}
+
+export type WebSocketExecutionMessage =
+  | WebSocketExecutionStartMessage
+  | WebSocketExecutionOutputMessage
+  | WebSocketExecutionEndMessage;

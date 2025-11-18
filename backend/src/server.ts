@@ -7,6 +7,8 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import websocket from '@fastify/websocket';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 import { config } from './lib/config';
 import { logger } from './lib/logger';
 import { loggerConfig } from './lib/logger.config';
@@ -79,6 +81,76 @@ export async function createServer() {
       maxPayload: 1048576, // 1MB
       clientTracking: true,
     },
+  });
+
+  // Register Swagger for API documentation
+  await fastify.register(swagger, {
+    openapi: {
+      openapi: '3.0.0',
+      info: {
+        title: 'VibeBox API',
+        description: 'Docker-based development environment management API with real-time collaboration, VS Code integration, and comprehensive tooling.',
+        version: '1.0.0',
+        contact: {
+          name: 'VibeBox',
+          url: 'https://github.com/yourusername/vibebox',
+        },
+        license: {
+          name: 'MIT',
+          url: 'https://opensource.org/licenses/MIT',
+        },
+      },
+      servers: [
+        {
+          url: `http://localhost:${config.port}`,
+          description: 'Development server',
+        },
+      ],
+      tags: [
+        { name: 'auth', description: 'Authentication endpoints' },
+        { name: 'users', description: 'User management' },
+        { name: 'teams', description: 'Team management' },
+        { name: 'projects', description: 'Project management' },
+        { name: 'environments', description: 'Environment management' },
+        { name: 'extensions', description: 'VS Code extension management' },
+        { name: 'sessions', description: 'Session management' },
+        { name: 'logs', description: 'Log management' },
+        { name: 'metrics', description: 'Metrics and monitoring' },
+        { name: 'api-keys', description: 'API key management' },
+        { name: 'git', description: 'Git operations' },
+        { name: 'files', description: 'File operations' },
+        { name: 'execution', description: 'Code execution' },
+        { name: 'health', description: 'Health check endpoints' },
+      ],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT',
+            description: 'JWT token obtained from /api/v1/auth/login or /api/v1/auth/register',
+          },
+          apiKey: {
+            type: 'apiKey',
+            in: 'header',
+            name: 'X-API-Key',
+            description: 'API key for service-to-service authentication',
+          },
+        },
+      },
+    },
+  });
+
+  // Register Swagger UI
+  await fastify.register(swaggerUi, {
+    routePrefix: '/docs',
+    uiConfig: {
+      docExpansion: 'list',
+      deepLinking: true,
+      displayRequestDuration: true,
+    },
+    staticCSP: true,
+    transformStaticCSP: (header) => header,
   });
 
   // Apply security headers to all requests
@@ -194,6 +266,7 @@ export async function startServer(
     logger.info('  REST API: /api/v1/*');
     logger.info('  WebSocket: /api/v1/ws/*');
     logger.info('  Health: /health');
+    logger.info(`  API Docs: http://${host}:${port}/docs`);
   } catch (error) {
     logger.error({ error }, 'Failed to start server');
     process.exit(1);

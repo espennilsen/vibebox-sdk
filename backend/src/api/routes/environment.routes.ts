@@ -12,6 +12,9 @@ import { validate, patterns } from '../middleware/validation';
 import { rateLimits } from '../middleware/rateLimit';
 import { checkUserQuota, checkTeamQuota, validateResourceLimits } from '../middleware/quotas';
 import { RESOURCE_LIMITS } from '@/lib/constants';
+import { gitRoutes } from './git.routes';
+import { executionRoutes } from './execution.routes';
+import { fileRoutes } from './file.routes';
 
 /**
  * Register environment routes
@@ -371,6 +374,84 @@ export async function environmentRoutes(fastify: FastifyInstance): Promise<void>
   });
 
   /**
+   * POST /api/v1/environments/:envId/pause
+   * Pause an environment
+   *
+   * @param envId - Environment ID
+   * @returns Updated environment data with paused status
+   * @throws {UnauthorizedError} If not authenticated
+   * @throws {ForbiddenError} If user doesn't have access to environment
+   * @throws {NotFoundError} If environment not found
+   * @throws {BadRequestError} If environment is not running
+   */
+  const pauseEnvironmentHandler: RouteHandlerMethod<
+    any,
+    any,
+    any,
+    { Params: { envId: string } }
+  > = async (request, reply) => {
+    const { envId } = request.params;
+    const { userId } = (request as AuthenticatedRequest).user;
+
+    const environment = await environmentService.pauseEnvironment(envId, userId);
+
+    return reply.status(200).send(environment);
+  };
+
+  fastify.post('/:envId/pause', {
+    preHandler: [
+      authenticate,
+      rateLimits.write,
+      validate({
+        params: {
+          envId: { type: 'string', required: true, pattern: patterns.uuid },
+        },
+      }),
+      requireEnvironmentAccess,
+    ],
+    handler: pauseEnvironmentHandler,
+  });
+
+  /**
+   * POST /api/v1/environments/:envId/resume
+   * Resume a paused environment
+   *
+   * @param envId - Environment ID
+   * @returns Updated environment data with running status
+   * @throws {UnauthorizedError} If not authenticated
+   * @throws {ForbiddenError} If user doesn't have access to environment
+   * @throws {NotFoundError} If environment not found
+   * @throws {BadRequestError} If environment is not paused
+   */
+  const resumeEnvironmentHandler: RouteHandlerMethod<
+    any,
+    any,
+    any,
+    { Params: { envId: string } }
+  > = async (request, reply) => {
+    const { envId } = request.params;
+    const { userId } = (request as AuthenticatedRequest).user;
+
+    const environment = await environmentService.resumeEnvironment(envId, userId);
+
+    return reply.status(200).send(environment);
+  };
+
+  fastify.post('/:envId/resume', {
+    preHandler: [
+      authenticate,
+      rateLimits.write,
+      validate({
+        params: {
+          envId: { type: 'string', required: true, pattern: patterns.uuid },
+        },
+      }),
+      requireEnvironmentAccess,
+    ],
+    handler: resumeEnvironmentHandler,
+  });
+
+  /**
    * GET /api/v1/environments/:envId/status
    * Get environment status
    *
@@ -667,4 +748,28 @@ export async function environmentRoutes(fastify: FastifyInstance): Promise<void>
     ],
     handler: removeVariableHandler,
   });
+
+  // Register nested git routes under /:environmentId/git
+  fastify.register(
+    async (gitScope) => {
+      await gitScope.register(gitRoutes);
+    },
+    { prefix: '/:environmentId/git' }
+  );
+
+  // Register nested execution routes under /:environmentId/execute
+  fastify.register(
+    async (execScope) => {
+      await execScope.register(executionRoutes);
+    },
+    { prefix: '/:environmentId/execute' }
+  );
+
+  // Register nested file routes under /:environmentId/files
+  fastify.register(
+    async (fileScope) => {
+      await fileScope.register(fileRoutes);
+    },
+    { prefix: '/:environmentId/files' }
+  );
 }

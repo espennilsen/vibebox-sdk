@@ -14,6 +14,7 @@ import { extensionRoutes } from './routes/extension.routes';
 import { logRoutes } from './routes/log.routes';
 import { healthRoutes } from './routes/health.routes';
 import { metricsRoutes } from './routes/metrics.routes';
+import { apiKeyRoutes } from './routes/api-keys.routes';
 import { registerWebSocketRoutes } from './websocket';
 import { metricsPlugin } from '../lib/metrics';
 
@@ -40,6 +41,9 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
     async (api) => {
       // Authentication routes
       await api.register(authRoutes, { prefix: '/auth' });
+
+      // API Key routes
+      await api.register(apiKeyRoutes, { prefix: '/keys' });
 
       // User routes
       await api.register(userRoutes, { prefix: '/users' });
@@ -75,6 +79,7 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
 // Export route modules for testing
 export {
   authRoutes,
+  apiKeyRoutes,
   userRoutes,
   teamRoutes,
   projectRoutes,

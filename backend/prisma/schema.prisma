@@ -32,6 +32,7 @@ model User {
   ownedProjects   Project[]       @relation("ProjectOwner")
   userTeams       UserTeam[]
   environments    Environment[]   @relation("EnvironmentCreator")
+  apiKeys         ApiKey[]
 
   @@index([createdAt])
   @@map("users")
@@ -123,6 +124,9 @@ model Environment {
   cpuLimit      Decimal           @default(2.0) @map("cpu_limit") @db.Decimal(4, 2)
   memoryLimit   Int               @default(4096) @map("memory_limit")
   storageLimit  Int               @default(20480) @map("storage_limit")
+  ephemeral     Boolean           @default(false)
+  expiresAt     DateTime?         @map("expires_at")
+  pausedAt      DateTime?         @map("paused_at")
   createdAt     DateTime          @default(now()) @map("created_at")
   updatedAt     DateTime          @updatedAt @map("updated_at")
   startedAt     DateTime?         @map("started_at")
@@ -136,6 +140,8 @@ model Environment {
   ports                 EnvironmentPort[]
   variables             EnvironmentVariable[]
   logs                  LogEntry[]
+  gitConfig             SandboxGitConfig?
+  executions            Execution[]
 
   @@unique([projectId, slug])
   @@index([projectId])
@@ -144,6 +150,7 @@ model Environment {
   @@index([containerId])
   @@index([creatorId, status])
   @@index([projectId, status])
+  @@index([expiresAt])
   @@map("environments")
 }
 
@@ -152,6 +159,7 @@ enum EnvironmentStatus {
   starting
   running
   stopping
+  paused
   error
 }
 
@@ -387,4 +395,110 @@ enum AuditSeverity {
   medium   // Important operations
   high     // Sensitive operations
   critical // Security-critical operations
+}
+
+/// ApiKey entity - API key authentication for programmatic access
+model ApiKey {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  name        String
+  keyHash     String   @unique @map("key_hash")
+  keyPrefix   String   @map("key_prefix")
+  scopes      String[] // read, write, execute
+  expiresAt   DateTime? @map("expires_at")
+  lastUsedAt  DateTime? @map("last_used_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([keyPrefix])
+  @@index([expiresAt])
+  @@map("api_keys")
+}
+
+/// SandboxGitConfig entity - Git repository configuration for sandboxes
+model SandboxGitConfig {
+  id            String   @id @default(uuid())
+  environmentId String   @unique @map("environment_id")
+  repoUrl       String   @map("repo_url")
+  branch        String   @default("main")
+  path          String   @default("/repo")
+  depth         Int?     // shallow clone depth
+  authType      GitAuthType @map("auth_type")
+  authToken     String?  @map("auth_token") @db.Text // encrypted
+  lastSyncAt    DateTime? @map("last_sync_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  environment Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+
+  @@index([environmentId])
+  @@map("sandbox_git_configs")
+}
+
+enum GitAuthType {
+  token
+  ssh
+  none
+}
+
+/// Execution entity - Code execution history
+model Execution {
+  id            String          @id @default(uuid())
+  environmentId String          @map("environment_id")
+  userId        String          @map("user_id")
+  code          String          @db.Text
+  language      String
+  status        ExecutionStatus
+  stdout        String?         @db.Text
+  stderr        String?         @db.Text
+  exitCode      Int?            @map("exit_code")
+  duration      Int?            // milliseconds
+  timeout       Int             @default(30000)
+  env           Json?           // environment variables
+  startedAt     DateTime?       @map("started_at")
+  completedAt   DateTime?       @map("completed_at")
+  createdAt     DateTime        @default(now()) @map("created_at")
+
+  // Relationships
+  environment Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+
+  @@index([environmentId])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("executions")
+}
+
+enum ExecutionStatus {
+  pending
+  running
+  completed
+  failed
+  timeout
+  cancelled
+}
+
+/// Template entity - Sandbox templates for quick environment creation
+model Template {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  displayName String   @map("display_name")
+  description String?  @db.Text
+  baseImage   String   @map("base_image")
+  category    String?  // nodejs, python, java, etc.
+  tags        String[]
+  config      Json     // default CPU, memory, storage, ports, extensions
+  isPublic    Boolean  @default(true) @map("is_public")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@index([isPublic, isActive])
+  @@map("templates")
 }

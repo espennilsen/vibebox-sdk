@@ -11,9 +11,14 @@ VibeBox is a production-ready developer dashboard that enables teams to create, 
 - 👥 **Team Collaboration**: Multi-user environments with role-based access control
 - 🛠️ **VS Code Integration**: Manage extensions and embedded terminal access
 - 📊 **Resource Management**: Configurable CPU, memory, and storage limits
-- 🔐 **Secure Authentication**: Email/password + OAuth (GitHub/Google)
+- 🔐 **Secure Authentication**: Email/password + OAuth (GitHub/Google) + API Keys
 - 📝 **Session Management**: tmux and VS Code Server support
 - 📈 **Log Management**: 7-day rolling retention with real-time streaming
+- 🚀 **SDK Ready**: 30+ REST API endpoints for programmatic access
+- 🌿 **Git Integration**: Full git operations (clone, pull, push, commit, checkout)
+- ⚡ **Code Execution**: Multi-language runtime with WebSocket streaming
+- 📁 **File Management**: Complete filesystem operations (upload, download, search)
+- ⏸️ **Pause/Resume**: Freeze and unfreeze environments on demand
 
 ## 🏗️ Architecture
 
@@ -106,6 +111,7 @@ Comprehensive documentation is available in the `.claude/` directory:
 
 - [**Quick Start Guide**](./.claude/quick_start.md) - Detailed setup instructions
 - [**API Reference**](./.claude/api_reference.md) - Complete API documentation
+- [**SDK API Reference**](./docs/SDK_API_REFERENCE.md) - ⭐ **NEW**: 30+ SDK endpoints for programmatic access
 - [**Spec Kit Contracts**](./.claude/specs.md) - Data models and contracts
 - [**Development Workflow**](./.claude/dev_workflow.md) - PR process and CI/CD
 - [**tmux Guide**](./.claude/tmux.md) - Session management tips

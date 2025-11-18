@@ -421,6 +421,98 @@ export class DockerService {
   }
 
   /**
+   * Pause container
+   *
+   * Pauses a running container, freezing all processes
+   *
+   * @param containerId - Container ID
+   * @throws {NotFoundError} If container doesn't exist
+   * @throws {InternalServerError} If Docker operation fails
+   *
+   * @example
+   * ```typescript
+   * const dockerService = new DockerService();
+   * await dockerService.pauseContainer('container-id-123');
+   * ```
+   */
+  async pauseContainer(containerId: string): Promise<void> {
+    try {
+      const container = this.docker.getContainer(containerId);
+      await container.pause();
+    } catch (error) {
+      console.error('Docker pause container error:', error);
+      // Check for 404 error first (container not found)
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'statusCode' in error &&
+        error.statusCode === 404
+      ) {
+        throw new NotFoundError('Container not found');
+      }
+      // Container already paused is not an error
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'statusCode' in error &&
+        error.statusCode === 304
+      ) {
+        return;
+      }
+      if (error instanceof Error) {
+        throw new InternalServerError(`Failed to pause container: ${error.message}`);
+      }
+      throw new InternalServerError('Failed to pause container');
+    }
+  }
+
+  /**
+   * Unpause container
+   *
+   * Resumes a paused container, unfreezing all processes
+   *
+   * @param containerId - Container ID
+   * @throws {NotFoundError} If container doesn't exist
+   * @throws {InternalServerError} If Docker operation fails
+   *
+   * @example
+   * ```typescript
+   * const dockerService = new DockerService();
+   * await dockerService.unpauseContainer('container-id-123');
+   * ```
+   */
+  async unpauseContainer(containerId: string): Promise<void> {
+    try {
+      const container = this.docker.getContainer(containerId);
+      await container.unpause();
+    } catch (error) {
+      console.error('Docker unpause container error:', error);
+      // Check for 404 error first (container not found)
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'statusCode' in error &&
+        error.statusCode === 404
+      ) {
+        throw new NotFoundError('Container not found');
+      }
+      // Container already running is not an error
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'statusCode' in error &&
+        error.statusCode === 304
+      ) {
+        return;
+      }
+      if (error instanceof Error) {
+        throw new InternalServerError(`Failed to unpause container: ${error.message}`);
+      }
+      throw new InternalServerError('Failed to unpause container');
+    }
+  }
+
+  /**
    * Remove container and cleanup isolated network
    *
    * Permanently removes a container and cleans up associated isolated network

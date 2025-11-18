@@ -32,6 +32,9 @@ export interface EnvironmentDTO {
   cpuLimit: number;
   memoryLimit: number;
   storageLimit: number;
+  ephemeral: boolean;
+  expiresAt?: Date | null;
+  pausedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
   startedAt?: Date | null;
@@ -50,6 +53,22 @@ export interface CreateEnvironmentData {
   cpuLimit?: number;
   memoryLimit?: number;
   storageLimit?: number;
+  // Enhanced fields for SDK
+  template?: string;
+  autoStart?: boolean;
+  ephemeral?: boolean;
+  timeout?: string; // Human-readable format like '2h', '30m'
+  git?: {
+    url: string;
+    branch?: string;
+    path?: string;
+    depth?: number;
+    auth?: {
+      type: 'token' | 'ssh' | 'none';
+      token?: string;
+      sshKey?: string;
+    };
+  };
 }
 
 /**
@@ -101,6 +120,38 @@ export class EnvironmentService {
     private prisma: PrismaClient = getPrismaClient(),
     private dockerService: DockerService = new DockerService()
   ) {}
+
+  /**
+   * Parse human-readable timeout string to Date
+   *
+   * @param timeout - Timeout string like '2h', '30m', '1d'
+   * @returns Date object representing expiration time
+   */
+  private parseTimeout(timeout: string): Date {
+    const regex = /^(\d+)(m|h|d)$/;
+    const match = timeout.match(regex);
+
+    if (!match) {
+      throw new ValidationError(
+        'Invalid timeout format. Use format like "30m", "2h", or "1d"'
+      );
+    }
+
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+
+    const now = new Date();
+    switch (unit) {
+      case 'm':
+        return new Date(now.getTime() + value * 60 * 1000);
+      case 'h':
+        return new Date(now.getTime() + value * 60 * 60 * 1000);
+      case 'd':
+        return new Date(now.getTime() + value * 24 * 60 * 60 * 1000);
+      default:
+        throw new ValidationError('Invalid timeout unit');
+    }
+  }
 
   /**
    * Create a new environment
@@ -172,6 +223,9 @@ export class EnvironmentService {
       throw new ConflictError('Environment slug already exists in this project');
     }
 
+    // Calculate expiration time if timeout is provided
+    const expiresAt = data.timeout ? this.parseTimeout(data.timeout) : undefined;
+
     // Create environment record (container will be created on start)
     const environment = await this.prisma.environment.create({
       data: {
@@ -185,8 +239,38 @@ export class EnvironmentService {
         cpuLimit: data.cpuLimit || 2.0,
         memoryLimit: data.memoryLimit || 4096,
         storageLimit: data.storageLimit || 20480,
+        ephemeral: data.ephemeral || false,
+        expiresAt,
       },
     });
+
+    // If autoStart is enabled, start the environment
+    if (data.autoStart) {
+      await this.startEnvironment(environment.id, creatorId);
+    }
+
+    // If git config is provided, clone the repository
+    if (data.git) {
+      // Import GitService to clone repository
+      const { GitService } = await import('./index');
+      try {
+        await GitService.cloneRepository(environment.id, {
+          url: data.git.url,
+          branch: data.git.branch,
+          path: data.git.path,
+          depth: data.git.depth,
+          auth: data.git.auth,
+        });
+      } catch (error) {
+        console.error('Failed to clone git repository:', error);
+        // Don't fail the environment creation, just log the error
+      }
+    }
+
+    // Fetch updated environment if autoStart was used
+    if (data.autoStart) {
+      return this.getEnvironmentById(environment.id, creatorId);
+    }
 
     return this.toEnvironmentDTO(environment);
   }
@@ -667,6 +751,172 @@ export class EnvironmentService {
         data: {
           status: EnvironmentStatus.error,
           errorMessage: error instanceof Error ? error.message : 'Failed to restart environment',
+        },
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Pause environment
+   *
+   * Pauses a running environment, freezing all processes in the container
+   *
+   * @param environmentId - Environment ID
+   * @param userId - User ID performing action
+   * @returns Updated environment
+   * @throws {NotFoundError} If environment doesn't exist
+   * @throws {ForbiddenError} If user lacks access
+   * @throws {BadRequestError} If environment is not running
+   *
+   * @example
+   * ```typescript
+   * const envService = new EnvironmentService();
+   * const env = await envService.pauseEnvironment('env-id-123', 'user-id-456');
+   * ```
+   */
+  async pauseEnvironment(environmentId: string, userId: string): Promise<EnvironmentDTO> {
+    const environment = await this.prisma.environment.findUnique({
+      where: { id: environmentId },
+      include: {
+        project: {
+          include: {
+            owner: true,
+            team: { include: { userTeams: true } },
+          },
+        },
+      },
+    });
+
+    if (!environment) {
+      throw new NotFoundError('Environment not found');
+    }
+
+    // Check access
+    await this.checkEnvironmentAccess(environment.project, userId);
+
+    // Check if already paused
+    if (environment.status === EnvironmentStatus.paused) {
+      return this.toEnvironmentDTO(environment);
+    }
+
+    // Check if running
+    if (environment.status !== EnvironmentStatus.running) {
+      throw new BadRequestError('Environment must be running to pause');
+    }
+
+    // Check if container exists
+    if (!environment.containerId) {
+      throw new BadRequestError('Environment has no container to pause');
+    }
+
+    try {
+      // Pause container
+      await this.dockerService.pauseContainer(environment.containerId);
+
+      // Update environment status to paused
+      const updatedEnvironment = await this.prisma.environment.update({
+        where: { id: environmentId },
+        data: {
+          status: EnvironmentStatus.paused,
+          pausedAt: new Date(),
+        },
+      });
+
+      return this.toEnvironmentDTO(updatedEnvironment);
+    } catch (error) {
+      console.error('Failed to pause environment:', error);
+
+      // Update status to error
+      await this.prisma.environment.update({
+        where: { id: environmentId },
+        data: {
+          status: EnvironmentStatus.error,
+          errorMessage: error instanceof Error ? error.message : 'Failed to pause environment',
+        },
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Resume environment
+   *
+   * Resumes a paused environment, unfreezing all processes in the container
+   *
+   * @param environmentId - Environment ID
+   * @param userId - User ID performing action
+   * @returns Updated environment
+   * @throws {NotFoundError} If environment doesn't exist
+   * @throws {ForbiddenError} If user lacks access
+   * @throws {BadRequestError} If environment is not paused
+   *
+   * @example
+   * ```typescript
+   * const envService = new EnvironmentService();
+   * const env = await envService.resumeEnvironment('env-id-123', 'user-id-456');
+   * ```
+   */
+  async resumeEnvironment(environmentId: string, userId: string): Promise<EnvironmentDTO> {
+    const environment = await this.prisma.environment.findUnique({
+      where: { id: environmentId },
+      include: {
+        project: {
+          include: {
+            owner: true,
+            team: { include: { userTeams: true } },
+          },
+        },
+      },
+    });
+
+    if (!environment) {
+      throw new NotFoundError('Environment not found');
+    }
+
+    // Check access
+    await this.checkEnvironmentAccess(environment.project, userId);
+
+    // Check if already running
+    if (environment.status === EnvironmentStatus.running) {
+      return this.toEnvironmentDTO(environment);
+    }
+
+    // Check if paused
+    if (environment.status !== EnvironmentStatus.paused) {
+      throw new BadRequestError('Environment must be paused to resume');
+    }
+
+    // Check if container exists
+    if (!environment.containerId) {
+      throw new BadRequestError('Environment has no container to resume');
+    }
+
+    try {
+      // Unpause container
+      await this.dockerService.unpauseContainer(environment.containerId);
+
+      // Update environment status to running
+      const updatedEnvironment = await this.prisma.environment.update({
+        where: { id: environmentId },
+        data: {
+          status: EnvironmentStatus.running,
+          pausedAt: null,
+        },
+      });
+
+      return this.toEnvironmentDTO(updatedEnvironment);
+    } catch (error) {
+      console.error('Failed to resume environment:', error);
+
+      // Update status to error
+      await this.prisma.environment.update({
+        where: { id: environmentId },
+        data: {
+          status: EnvironmentStatus.error,
+          errorMessage: error instanceof Error ? error.message : 'Failed to resume environment',
         },
       });
 

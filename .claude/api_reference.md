@@ -12,6 +12,18 @@ The VibeBox API is a RESTful API that provides endpoints for managing developmen
 
 **API Documentation (Swagger UI)**: `http://localhost:3000/api/v1/docs`
 
+---
+
+## 🚀 SDK API Reference
+
+**NEW**: For comprehensive SDK integration documentation including API Keys, Git Operations, Code Execution, and File Management, see:
+
+**📚 [SDK API Reference](../docs/SDK_API_REFERENCE.md)** ⭐
+
+This document covers all 30+ new endpoints added for programmatic SDK access.
+
+---
+
 ## 🔐 Authentication
 
 ### Authentication Methods

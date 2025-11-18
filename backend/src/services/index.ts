@@ -21,6 +21,18 @@ export { LogService } from './log.service';
 export { LogCleanupService } from './log-cleanup.service';
 export { WebSocketService } from './websocket.service';
 
+// API Key service
+export * as ApiKeyService from './api-key.service';
+
+// Git service
+export * as GitService from './git.service';
+
+// Execution service
+export * as ExecutionService from './execution.service';
+
+// File service
+export * as FileService from './file.service';
+
 // Type exports from AuthService
 export type {
   JWTPayload,
