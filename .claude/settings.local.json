@@ -4,7 +4,8 @@
       "WebFetch(domain:github.com)",
       "SlashCommand(/plan)",
       "Bash(.specify/scripts/bash/setup-plan.sh:*)",
-      "Bash(.specify/scripts/bash/update-agent-context.sh:*)"
+      "Bash(.specify/scripts/bash/update-agent-context.sh:*)",
+      "WebFetch(domain:e2b.dev)"
     ],
     "deny": [],
     "ask": []
