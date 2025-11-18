@@ -9,6 +9,7 @@ import jwt from '@fastify/jwt';
 import websocket from '@fastify/websocket';
 import { config } from './lib/config';
 import { logger } from './lib/logger';
+import { loggerConfig } from './lib/logger.config';
 import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
 import { registerRoutes } from './api';
 import { getScheduler } from './lib/scheduler';
@@ -24,7 +25,7 @@ import { rateLimits } from './api/middleware/rateLimit';
 export async function createServer() {
   // Create Fastify instance with logger
   const fastify = Fastify({
-    logger: logger as never,
+    logger: loggerConfig,
     requestIdLogLabel: 'requestId',
     disableRequestLogging: false,
     trustProxy: true,
