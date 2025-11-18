@@ -41,6 +41,7 @@ VibeBox will become a **developer-first sandbox platform** that enables:
 **Deliverables**:
 - TypeScript/JavaScript SDK (`@vibebox/sdk`)
 - API key authentication system
+- Git integration (clone repos into `/repo`)
 - Simplified REST API for AI agents
 - Code execution engine for Node.js
 - File upload/download API
@@ -48,9 +49,10 @@ VibeBox will become a **developer-first sandbox platform** that enables:
 
 **Success Criteria**:
 - Create sandbox with 3 lines of code
+- Clone git repo into sandbox automatically
 - Execute Node.js code programmatically
 - Upload/download files via SDK
-- <5 minutes to first running sandbox
+- <5 minutes to first running sandbox with cloned repo
 
 ---
 
@@ -143,6 +145,7 @@ VibeBox will become a **developer-first sandbox platform** that enables:
 - [ ] SDK package structure (`packages/sdk/`)
 - [ ] Core client with authentication
 - [ ] Sandbox CRUD operations
+- [ ] Git integration API (clone, pull, push, commit)
 - [ ] Code execution API
 - [ ] File transfer API
 - [ ] WebSocket integration (logs, terminal)
@@ -176,6 +179,40 @@ const sandbox = await vb.create({
   ephemeral: false, // persistent sandbox (default: false)
   timeout: '2h'     // human-readable durations
 });
+
+// ===== Git repository integration =====
+// Clone repository into sandbox at /repo
+const sandbox = await vb.create({
+  template: 'node-20-claude-code',
+  git: {
+    url: 'https://github.com/user/project.git',
+    branch: 'main',  // optional, defaults to default branch
+    path: '/repo'    // optional, defaults to /repo
+  }
+});
+
+// Or clone after creation
+await sandbox.git.clone('https://github.com/user/project.git');
+await sandbox.git.clone('https://github.com/user/project.git', {
+  branch: 'develop',
+  path: '/repo',
+  depth: 1  // shallow clone
+});
+
+// Git operations in sandbox
+await sandbox.git.pull();
+await sandbox.git.checkout('feature-branch');
+await sandbox.git.commit('feat: add new feature', { all: true });
+await sandbox.git.push();
+
+// Quick workflow: clone, install, and run
+const sandbox = await vb.create({
+  template: 'node-20-claude-code',
+  git: 'https://github.com/user/project.git'  // shorthand
+});
+
+await sandbox.run('npm install', { cwd: '/repo' });
+await sandbox.run('npm test', { cwd: '/repo' });
 
 // ===== Execute code with automatic cleanup =====
 // Run code and get structured results
@@ -332,7 +369,123 @@ model ApiKey {
 }
 ```
 
-#### 1.3 Code Execution Engine
+#### 1.3 Git Integration Service
+**Duration**: 4 days
+
+**Tasks**:
+- [ ] Git service (`git.service.ts`)
+- [ ] Clone repository endpoint
+- [ ] Git operations (pull, push, commit, checkout)
+- [ ] Authentication support (SSH keys, tokens)
+- [ ] Branch management
+- [ ] Auto-clone during sandbox creation
+- [ ] Git status and diff endpoints
+- [ ] Webhook integration for auto-pull
+
+**API Endpoints**:
+```
+POST   /api/v1/sandboxes/{id}/git/clone
+POST   /api/v1/sandboxes/{id}/git/pull
+POST   /api/v1/sandboxes/{id}/git/push
+POST   /api/v1/sandboxes/{id}/git/commit
+POST   /api/v1/sandboxes/{id}/git/checkout
+GET    /api/v1/sandboxes/{id}/git/status
+GET    /api/v1/sandboxes/{id}/git/diff
+```
+
+**Clone Request**:
+```json
+{
+  "url": "https://github.com/user/project.git",
+  "branch": "main",
+  "path": "/repo",
+  "depth": 1,
+  "auth": {
+    "type": "token",
+    "token": "ghp_xxxxx"
+  }
+}
+```
+
+**Implementation**:
+```typescript
+export class GitService {
+  async cloneRepository(
+    containerId: string,
+    url: string,
+    options: GitCloneOptions
+  ): Promise<GitCloneResult> {
+    const { branch, path = '/repo', depth, auth } = options;
+
+    // 1. Setup authentication if provided
+    if (auth?.type === 'token') {
+      await this.setupGitCredentials(containerId, auth.token);
+    } else if (auth?.type === 'ssh') {
+      await this.setupSSHKey(containerId, auth.privateKey);
+    }
+
+    // 2. Clone repository
+    const cloneCmd = [
+      'git', 'clone',
+      branch ? `--branch ${branch}` : '',
+      depth ? `--depth ${depth}` : '',
+      url,
+      path
+    ].filter(Boolean).join(' ');
+
+    const result = await this.dockerService.exec(containerId, {
+      cmd: ['sh', '-c', cloneCmd],
+      timeout: 300000, // 5 minutes
+      attachStdout: true,
+      attachStderr: true
+    });
+
+    // 3. Store git config in database
+    await this.db.sandboxGitConfig.create({
+      data: {
+        sandboxId,
+        repoUrl: url,
+        branch: branch || 'main',
+        path,
+        clonedAt: new Date()
+      }
+    });
+
+    return {
+      success: result.exitCode === 0,
+      path,
+      branch: branch || await this.getCurrentBranch(containerId, path)
+    };
+  }
+
+  async pull(containerId: string, path: string = '/repo') {
+    return await this.dockerService.exec(containerId, {
+      cmd: ['git', '-C', path, 'pull'],
+      timeout: 120000
+    });
+  }
+
+  async commit(
+    containerId: string,
+    message: string,
+    options: GitCommitOptions
+  ) {
+    const { path = '/repo', all = false } = options;
+
+    if (all) {
+      await this.dockerService.exec(containerId, {
+        cmd: ['git', '-C', path, 'add', '.']
+      });
+    }
+
+    return await this.dockerService.exec(containerId, {
+      cmd: ['git', '-C', path, 'commit', '-m', message]
+    });
+  }
+}
+```
+
+#### 1.4 Code Execution Engine
 **Duration**: 1 week
 
 **Tasks**:
@@ -411,7 +564,7 @@ export class ExecutionService {
 }
 ```
 
-#### 1.4 File Transfer API
+#### 1.5 File Transfer API
 **Duration**: 4 days
 
 **Tasks**:
@@ -694,6 +847,10 @@ vibebox new node-20-claude-code
 # Or with custom name
 vibebox new node-20 my-app
 
+# Create sandbox with git repo
+vibebox new node-20 my-app --git https://github.com/user/project.git
+vibebox new node-20 my-app --git https://github.com/user/project.git --branch develop
+
 # ===== Sandbox management =====
 # List all sandboxes
 vibebox ls
@@ -722,10 +879,41 @@ vibebox pull my-app:output.txt    # downloads to current directory
 # Sync directory (watch mode)
 vibebox sync ./src my-app --watch
 
+# ===== Git operations =====
+# Clone repository into existing sandbox
+vibebox git clone my-app https://github.com/user/project.git
+vibebox git clone my-app https://github.com/user/project.git --branch develop
+
+# Git operations in /repo directory
+vibebox git pull my-app
+vibebox git status my-app
+vibebox git diff my-app
+
+# Checkout branch
+vibebox git checkout my-app feature-branch
+
+# Commit changes
+vibebox git commit my-app "feat: add new feature"
+vibebox git commit my-app "fix: bug" --all  # git add . && git commit
+
+# Push changes
+vibebox git push my-app
+
+# Full workflow example
+vibebox new node-20 my-app --git https://github.com/user/project.git
+vibebox exec my-app "cd /repo && npm install"
+vibebox exec my-app "cd /repo && npm test"
+vibebox git commit my-app "test: add tests" --all
+vibebox git push my-app
+
 # ===== Code execution =====
 # Execute command
 vibebox exec my-app "npm install"
 vibebox exec my-app "npm test"
+
+# Execute in /repo directory
+vibebox exec my-app "npm install" --cwd /repo
+vibebox exec my-app "npm test" --cwd /repo
 
 # Run script file
 vibebox run my-app ./deploy.sh
